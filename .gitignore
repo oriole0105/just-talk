@@ -1,0 +1,9 @@
+/target
+Cargo.lock
+*.ggml
+*.bin
+*.pth
+models/
+.env
+config.toml
+*.DS_Store
