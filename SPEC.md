@@ -500,11 +500,11 @@ gpu = ["whisper-rs/cuda"]        # CUDA 加速（Linux/Windows）
 
 ### Phase 3：全域快捷鍵
 
-- [ ] P3-01 `src/hotkey.rs`：用 `rdev::listen` 監聽鍵盤事件
-- [ ] P3-02 `src/hotkey.rs`：從 `HotkeyConfig` 解析目標按鍵與 modifier 組合
-- [ ] P3-03 `src/hotkey.rs`：偵測到目標快捷鍵時，透過 `mpsc::Sender` 送出 `AppEvent::HotkeyPressed`
-- [ ] P3-04 `src/hotkey.rs`：在獨立 thread 執行（`std::thread::spawn`），不阻塞 Tokio runtime
-- [ ] P3-05 測試快捷鍵 toggle 事件是否正確送出（mock sender）
+- [x] P3-01 `src/hotkey.rs`：用 `rdev::listen` 監聽鍵盤事件
+- [x] P3-02 `src/hotkey.rs`：從 `HotkeyConfig` 解析目標按鍵與 modifier 組合
+- [x] P3-03 `src/hotkey.rs`：偵測到目標快捷鍵時，透過 `mpsc::Sender` 送出 `AppEvent::HotkeyPressed`
+- [x] P3-04 `src/hotkey.rs`：在獨立 thread 執行（`std::thread::spawn`），不阻塞 Tokio runtime
+- [x] P3-05 測試快捷鍵 toggle 事件是否正確送出（mock sender）
 
 ### Phase 4：音訊擷取
 
