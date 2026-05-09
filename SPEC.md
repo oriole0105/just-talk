@@ -479,7 +479,7 @@ gpu = ["whisper-rs/cuda"]        # CUDA 加速（Linux/Windows）
 - [x] P0-02 撰寫完整 `Cargo.toml`（所有 dependency + features + target-specific）
 - [x] P0-03 建立 `build.rs`（platform detection, whisper-rs cfg）
 - [x] P0-04 建立完整目錄結構（所有 mod 的空檔案 + `mod.rs`）
-- [ ] P0-05 `cargo check` 確認專案結構無語法錯誤　← 需先安裝 Rust
+- [x] P0-05 `cargo check` 確認專案結構無語法錯誤
 
 ### Phase 1：基礎設施
 
