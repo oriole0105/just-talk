@@ -1,0 +1,81 @@
+[package]
+name = "just-talk"
+version = "0.1.0"
+edition = "2021"
+description = "Cross-platform voice IME — speak to type, powered by Whisper + AI"
+license = "MIT"
+
+# -----------------------------------------------------------------------------
+# Features
+# default: no local-whisper (needs cmake) and no tray, enabled per-phase
+# -----------------------------------------------------------------------------
+[features]
+default = []
+local-whisper = ["dep:whisper-rs"]   # requires cmake; enable after Phase 5
+tray          = ["dep:tray-icon"]    # enable after Phase 2
+gpu           = ["whisper-rs/cuda"]  # CUDA acceleration (Linux/Windows)
+
+# -----------------------------------------------------------------------------
+# Core dependencies
+# -----------------------------------------------------------------------------
+[dependencies]
+# Async
+tokio        = { version = "1",    features = ["full"] }
+async-trait  = "0.1"
+
+# Global hotkey
+rdev         = "0.5"
+
+# Audio capture & processing
+cpal         = "0.15"
+rubato       = "0.14"
+hound        = "3.5"
+
+# Local Whisper (optional, needs cmake)
+whisper-rs   = { version = "0.11", optional = true }
+
+# HTTP client for remote APIs
+reqwest      = { version = "0.12", features = ["json", "multipart"] }
+
+# Output
+arboard      = "3"
+enigo        = "0.2"
+
+# Config & CLI
+serde        = { version = "1", features = ["derive"] }
+toml         = "0.8"
+clap         = { version = "4",    features = ["derive"] }
+
+# Error handling
+thiserror    = "1"
+anyhow       = "1"
+
+# Logging
+tracing             = "0.1"
+tracing-subscriber  = { version = "0.3", features = ["env-filter"] }
+
+# Utilities
+dirs         = "5"
+notify       = "6"        # filesystem watcher for config hot-reload
+notify-rust  = "4"        # OS notification popups
+
+# System tray (optional)
+tray-icon    = { version = "0.14", optional = true }
+
+# -----------------------------------------------------------------------------
+# Platform-specific (focus detection — added in Phase 7)
+# -----------------------------------------------------------------------------
+# [target.'cfg(target_os = "macos")'.dependencies]
+# accessibility = "0.1"
+
+# [target.'cfg(target_os = "windows")'.dependencies]
+# windows = { version = "0.58", features = ["Win32_UI_Accessibility"] }
+
+# [target.'cfg(target_os = "linux")'.dependencies]
+# atspi = "0.3"
+
+# -----------------------------------------------------------------------------
+# Dev & test
+# -----------------------------------------------------------------------------
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }

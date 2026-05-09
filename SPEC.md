@@ -475,11 +475,11 @@ gpu = ["whisper-rs/cuda"]        # CUDA 加速（Linux/Windows）
 
 ### Phase 0：專案初始化
 
-- [ ] P0-01 `cargo new just-talk --bin` 初始化專案
-- [ ] P0-02 撰寫完整 `Cargo.toml`（所有 dependency + features + target-specific）
-- [ ] P0-03 建立 `build.rs`（platform detection, whisper-rs cfg）
-- [ ] P0-04 建立完整目錄結構（所有 mod 的空檔案 + `mod.rs`）
-- [ ] P0-05 `cargo check` 確認專案結構無語法錯誤
+- [x] P0-01 `cargo new just-talk --bin` 初始化專案
+- [x] P0-02 撰寫完整 `Cargo.toml`（所有 dependency + features + target-specific）
+- [x] P0-03 建立 `build.rs`（platform detection, whisper-rs cfg）
+- [x] P0-04 建立完整目錄結構（所有 mod 的空檔案 + `mod.rs`）
+- [ ] P0-05 `cargo check` 確認專案結構無語法錯誤　← 需先安裝 Rust
 
 ### Phase 1：基礎設施
 
