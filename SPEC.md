@@ -483,13 +483,13 @@ gpu = ["whisper-rs/cuda"]        # CUDA 加速（Linux/Windows）
 
 ### Phase 1：基礎設施
 
-- [ ] P1-01 `src/error.rs`：定義 `JustTalkError` 與 `thiserror`
-- [ ] P1-02 `src/config.rs`：Config struct + TOML 反序列化 + 預設值
-- [ ] P1-03 `src/config.rs`：config 路徑搜尋邏輯（CLI > env > XDG > 同目錄）
-- [ ] P1-04 `src/config.rs`：`notify` crate 實作 config 熱重載（發送 `ReloadConfig` event）
-- [ ] P1-05 `src/main.rs`：`clap` CLI 定義（`--config`, `--verbose`, `--dry-run`）
-- [ ] P1-06 `src/main.rs`：`tracing_subscriber` 初始化（verbose flag 控制 level）
-- [ ] P1-07 撰寫 config 載入的 unit test（合法 TOML、欄位缺失 fallback 預設值）
+- [x] P1-01 `src/error.rs`：定義 `JustTalkError` 與 `thiserror`
+- [x] P1-02 `src/config.rs`：Config struct + TOML 反序列化 + 預設值
+- [x] P1-03 `src/config.rs`：config 路徑搜尋邏輯（CLI > env > XDG > 同目錄）
+- [x] P1-04 `src/config.rs`：`notify` crate 實作 config 熱重載（發送 `ReloadConfig` event）
+- [x] P1-05 `src/main.rs`：`clap` CLI 定義（`--config`, `--verbose`, `--dry-run`）
+- [x] P1-06 `src/main.rs`：`tracing_subscriber` 初始化（verbose flag 控制 level）
+- [x] P1-07 撰寫 config 載入的 unit test（合法 TOML、欄位缺失 fallback 預設值）
 
 ### Phase 2：通知 & Tray
 
