@@ -1,16 +1,3 @@
-mod app;
-mod audio;
-mod config;
-mod error;
-mod hotkey;
-mod notification;
-mod output;
-mod refine;
-mod transcribe;
-
-#[cfg(feature = "tray")]
-mod tray;
-
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -29,7 +16,7 @@ struct Cli {
     #[arg(short, long)]
     verbose: bool,
 
-    /// Dry-run: transcribe and refine but print to stdout instead of injecting
+    /// Dry-run: transcribe and refine, but print output to stdout instead of injecting
     #[arg(long)]
     dry_run: bool,
 }
@@ -39,8 +26,8 @@ fn main() -> anyhow::Result<()> {
 
     init_tracing(cli.verbose);
 
-    let config_path = config::Config::find_path(cli.config);
-    let cfg = config::Config::load_or_default(config_path.as_deref());
+    let config_path = just_talk::config::Config::find_path(cli.config);
+    let cfg = just_talk::config::Config::load_or_default(config_path.as_deref());
 
     tracing::info!(
         version = env!("CARGO_PKG_VERSION"),
@@ -52,13 +39,7 @@ fn main() -> anyhow::Result<()> {
         "just-talk starting"
     );
 
-    if cli.dry_run {
-        tracing::info!("Dry-run mode: output will be printed to stdout");
-    }
-
-    // Phase 8: replace with App::new(cfg).run()
-    tracing::info!("App state machine not yet implemented (Phase 8). Exiting.");
-    Ok(())
+    just_talk::app::App::new(cfg, config_path, cli.dry_run).run()
 }
 
 fn init_tracing(verbose: bool) {

@@ -14,7 +14,7 @@ pub trait Refiner: Send + Sync {
 }
 
 /// Factory: create the configured refiner backend.
-pub fn create_refiner(config: &RefineConfig) -> Box<dyn Refiner> {
+pub fn create_refiner(config: &RefineConfig) -> Box<dyn Refiner + Send + Sync> {
     match config.backend {
         RefineBackend::Claude  => Box::new(claude::ClaudeRefiner::new(config)),
         RefineBackend::OpenAi  => Box::new(openai::OpenAiRefiner::new(config)),

@@ -55,8 +55,12 @@ pub struct TranscribeConfig {
     pub backend: TranscribeBackend,
     pub model_path: Option<PathBuf>,
     pub language: Option<String>,
+    pub prompt: Option<String>,
     pub openai_api_key: Option<String>,
     pub openai_model: String,
+    /// Override the API base URL (e.g. "https://api.groq.com/openai" for Groq).
+    /// Defaults to the official OpenAI endpoint.
+    pub base_url: Option<String>,
 }
 
 impl Default for TranscribeConfig {
@@ -66,8 +70,10 @@ impl Default for TranscribeConfig {
             model_path: dirs::data_local_dir()
                 .map(|d| d.join("just-talk").join("models").join("ggml-base.bin")),
             language: Some("auto".to_string()),
+            prompt: None,
             openai_api_key: None,
             openai_model: "whisper-1".to_string(),
+            base_url: None,
         }
     }
 }

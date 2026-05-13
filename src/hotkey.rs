@@ -26,24 +26,27 @@ pub(crate) enum ModifierGroup {
     Shift,
     Alt,
     Meta,
+    MetaRight,
 }
 
 impl ModifierGroup {
     pub(crate) fn is_active(&self, pressed: &HashSet<Key>) -> bool {
         match self {
-            Self::Ctrl  => pressed.contains(&Key::ControlLeft)  || pressed.contains(&Key::ControlRight),
-            Self::Shift => pressed.contains(&Key::ShiftLeft)    || pressed.contains(&Key::ShiftRight),
-            Self::Alt   => pressed.contains(&Key::Alt)          || pressed.contains(&Key::AltGr),
-            Self::Meta  => pressed.contains(&Key::MetaLeft),
+            Self::Ctrl      => pressed.contains(&Key::ControlLeft) || pressed.contains(&Key::ControlRight),
+            Self::Shift     => pressed.contains(&Key::ShiftLeft)   || pressed.contains(&Key::ShiftRight),
+            Self::Alt       => pressed.contains(&Key::Alt)         || pressed.contains(&Key::AltGr),
+            Self::Meta      => pressed.contains(&Key::MetaLeft)    || pressed.contains(&Key::MetaRight),
+            Self::MetaRight => pressed.contains(&Key::MetaRight),
         }
     }
 
     fn from_str(s: &str) -> anyhow::Result<Self> {
         match s.to_lowercase().as_str() {
-            "ctrl" | "control"                            => Ok(Self::Ctrl),
-            "shift"                                       => Ok(Self::Shift),
-            "alt" | "option" | "opt"                      => Ok(Self::Alt),
-            "meta" | "cmd" | "command" | "win" | "super"  => Ok(Self::Meta),
+            "ctrl" | "control"                                          => Ok(Self::Ctrl),
+            "shift"                                                     => Ok(Self::Shift),
+            "alt" | "option" | "opt"                                    => Ok(Self::Alt),
+            "meta" | "cmd" | "command" | "win" | "super"                => Ok(Self::Meta),
+            "metacright" | "rightcmd" | "rcmd" | "rightcommand" | "cmdright" => Ok(Self::MetaRight),
             other => anyhow::bail!("Unknown modifier: '{}'", other),
         }
     }

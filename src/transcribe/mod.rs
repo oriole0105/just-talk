@@ -12,9 +12,11 @@ pub trait Transcriber: Send + Sync {
 }
 
 /// Factory: create the configured transcriber backend.
-pub fn create_transcriber(config: &TranscribeConfig) -> Box<dyn Transcriber> {
+///
+/// Returns `Err` if the backend cannot be initialised (e.g. model file missing).
+pub fn create_transcriber(config: &TranscribeConfig) -> Result<Box<dyn Transcriber + Send + Sync>> {
     match config.backend {
-        TranscribeBackend::Local  => Box::new(local::LocalTranscriber::new(config)),
-        TranscribeBackend::OpenAi => Box::new(remote::RemoteTranscriber::new(config)),
+        TranscribeBackend::Local  => Ok(Box::new(local::LocalTranscriber::new(config)?)),
+        TranscribeBackend::OpenAi => Ok(Box::new(remote::RemoteTranscriber::new(config))),
     }
 }

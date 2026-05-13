@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hardened runtime: allow audio input -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+
+    <!-- Accessibility API for keyboard injection -->
+    <!-- Note: this entitlement alone is not sufficient;
+         the user must also grant permission in
+         System Settings → Privacy & Security → Accessibility.
+         rdev uses CGEventPost which requires the process to be
+         in the trusted accessibility client list. -->
+    <key>com.apple.security.temporary-exception.apple-events</key>
+    <true/>
+
+    <!-- Allow outbound network connections for remote APIs
+         (Whisper API, Claude/OpenAI/Ollama) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+</dict>
+</plist>

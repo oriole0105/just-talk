@@ -4,6 +4,39 @@ version = "0.1.0"
 edition = "2021"
 description = "Cross-platform voice IME — speak to type, powered by Whisper + AI"
 license = "MIT"
+repository = "https://github.com/your-username/just-talk"
+homepage = "https://github.com/your-username/just-talk"
+keywords = ["voice", "ime", "whisper", "transcription", "accessibility"]
+categories = ["command-line-utilities", "accessibility"]
+
+# cargo-bundle (macOS .app)
+[package.metadata.bundle]
+name = "just-talk"
+identifier = "com.just-talk.app"
+icon = ["build/macos/AppIcon.icns"]
+version = "0.1.0"
+copyright = "Copyright © 2024 just-talk contributors"
+category = "public.app-category.utilities"
+short_description = "Voice IME — speak to type"
+long_description = "Press a hotkey to record, Whisper transcribes, AI refines, text is injected."
+osx_minimum_system_version = "12.0"
+osx_url_schemes = []
+osx_frameworks = []
+
+# cargo-deb (Debian/Ubuntu .deb)
+[package.metadata.deb]
+maintainer = "just-talk contributors"
+copyright = "Copyright © 2024 just-talk contributors, MIT License"
+license-file = ["LICENSE", "4"]
+extended-description = "just-talk is a cross-platform voice IME. Press a global hotkey, speak, and the transcribed (and optionally AI-refined) text is injected into any focused text field."
+depends = "$auto, libasound2, libxdo3, libxtst6"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/just-talk", "usr/bin/", "755"],
+    ["build/linux/just-talk.desktop", "usr/share/applications/", "644"],
+    ["README.md", "usr/share/doc/just-talk/README", "644"],
+]
 
 # -----------------------------------------------------------------------------
 # Features
@@ -43,6 +76,7 @@ enigo        = "0.2"
 
 # Config & CLI
 serde        = { version = "1", features = ["derive"] }
+serde_json   = "1"
 toml         = "0.8"
 clap         = { version = "4",    features = ["derive"] }
 
@@ -78,4 +112,5 @@ tray-icon    = { version = "0.14", optional = true }
 # Dev & test
 # -----------------------------------------------------------------------------
 [dev-dependencies]
-tokio = { version = "1", features = ["full", "test-util"] }
+tokio    = { version = "1", features = ["full", "test-util"] }
+wiremock = "0.6"

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=just-talk
+Comment=Voice IME — speak to type, powered by Whisper + AI
+Exec=just-talk
+Icon=just-talk
+Type=Application
+Categories=Utility;Accessibility;
+Keywords=voice;ime;transcription;speech;whisper;
+StartupNotify=false
+NoDisplay=false

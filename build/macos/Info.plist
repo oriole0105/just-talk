@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.just-talk.app</string>
+
+    <key>CFBundleName</key>
+    <string>just-talk</string>
+
+    <key>CFBundleDisplayName</key>
+    <string>just-talk</string>
+
+    <key>CFBundleExecutable</key>
+    <string>just-talk</string>
+
+    <key>CFBundleVersion</key>
+    <string>0.1.0</string>
+
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <key>CFBundleSignature</key>
+    <string>????</string>
+
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
+
+    <key>LSUIElement</key>
+    <true/>
+
+    <!-- Microphone access -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>just-talk needs microphone access to capture your voice for transcription.</string>
+
+    <!-- Accessibility (for keyboard injection via CGEventPost) -->
+    <key>NSAppleEventsUsageDescription</key>
+    <string>just-talk needs Accessibility access to inject transcribed text into other applications.</string>
+
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2024 just-talk contributors. MIT License.</string>
+</dict>
+</plist>

@@ -1,0 +1,14 @@
+//! just-talk library crate — exposes all modules for integration tests.
+
+pub mod app;
+pub mod audio;
+pub mod config;
+pub mod error;
+pub mod hotkey;
+pub mod notification;
+pub mod output;
+pub mod refine;
+pub mod transcribe;
+
+#[cfg(feature = "tray")]
+pub mod tray;

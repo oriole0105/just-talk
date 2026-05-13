@@ -508,77 +508,77 @@ gpu = ["whisper-rs/cuda"]        # CUDA 加速（Linux/Windows）
 
 ### Phase 4：音訊擷取
 
-- [ ] P4-01 `src/audio.rs`：用 `cpal` 列舉並選擇預設輸入設備
-- [ ] P4-02 `src/audio.rs`：建立 `AudioCapture` struct，`start()` 開始收集 f32 PCM
-- [ ] P4-03 `src/audio.rs`：`stop()` 返回完整 `Vec<f32>` buffer
-- [ ] P4-04 `src/audio.rs`：stereo → mono downmix
-- [ ] P4-05 `src/audio.rs`：用 `rubato` 將任意 sample rate resample 到 16000 Hz
-- [ ] P4-06 `src/audio.rs`：最大錄音時長保護（預設 120s，超過自動停止）
-- [ ] P4-07 撰寫 resampler unit test（輸入 44100→16000，驗證 sample count 比例）
+- [x] P4-01 `src/audio.rs`：用 `cpal` 列舉並選擇預設輸入設備
+- [x] P4-02 `src/audio.rs`：建立 `AudioCapture` struct，`start()` 開始收集 f32 PCM
+- [x] P4-03 `src/audio.rs`：`stop()` 返回完整 `Vec<f32>` buffer
+- [x] P4-04 `src/audio.rs`：stereo → mono downmix
+- [x] P4-05 `src/audio.rs`：用 `rubato` 將任意 sample rate resample 到 16000 Hz
+- [x] P4-06 `src/audio.rs`：最大錄音時長保護（預設 120s，超過自動停止）
+- [x] P4-07 撰寫 resampler unit test（輸入 44100→16000，驗證 sample count 比例）
 
 ### Phase 5：語音轉錄
 
-- [ ] P5-01 `src/transcribe/mod.rs`：定義 `Transcriber` trait（`async fn transcribe`）
-- [ ] P5-02 `src/transcribe/mod.rs`：工廠函式 `create_transcriber(config)` → `Box<dyn Transcriber>`
-- [ ] P5-03 `src/transcribe/local.rs`：用 `whisper-rs` 載入 ggml 模型（lazy_static 或 OnceCell）
-- [ ] P5-04 `src/transcribe/local.rs`：實作 `transcribe()`，傳入 16kHz f32 PCM
-- [ ] P5-05 `src/transcribe/local.rs`：支援 `language` 參數（auto / 指定語言）
-- [ ] P5-06 `src/transcribe/remote.rs`：用 `hound` 將 f32 PCM 編碼為 WAV bytes（in-memory）
-- [ ] P5-07 `src/transcribe/remote.rs`：`reqwest` multipart POST 到 OpenAI `/v1/audio/transcriptions`
-- [ ] P5-08 `src/transcribe/remote.rs`：解析回應 JSON，提取 `text` 欄位
-- [ ] P5-09 `src/transcribe/remote.rs`：實作 retry（最多 2 次，exponential backoff）
-- [ ] P5-10 integration test：用本地 model 轉錄測試 WAV 檔，驗證輸出非空
+- [x] P5-01 `src/transcribe/mod.rs`：定義 `Transcriber` trait（`async fn transcribe`）
+- [x] P5-02 `src/transcribe/mod.rs`：工廠函式 `create_transcriber(config)` → `Box<dyn Transcriber>`
+- [x] P5-03 `src/transcribe/local.rs`：用 `whisper-rs` 載入 ggml 模型（Arc<WhisperContext> eager load）
+- [x] P5-04 `src/transcribe/local.rs`：實作 `transcribe()`，傳入 16kHz f32 PCM
+- [x] P5-05 `src/transcribe/local.rs`：支援 `language` 參數（auto / 指定語言）
+- [x] P5-06 `src/transcribe/remote.rs`：用 `hound` 將 f32 PCM 編碼為 WAV bytes（in-memory）
+- [x] P5-07 `src/transcribe/remote.rs`：`reqwest` multipart POST 到 OpenAI `/v1/audio/transcriptions`
+- [x] P5-08 `src/transcribe/remote.rs`：解析回應 JSON，提取 `text` 欄位
+- [x] P5-09 `src/transcribe/remote.rs`：實作 retry（最多 2 次，exponential backoff）
+- [x] P5-10 integration test：`#[ignore]` test for local model（run with --ignored）
 
 ### Phase 6：AI 文字修飾
 
-- [ ] P6-01 `src/refine/mod.rs`：定義 `Refiner` trait（`async fn refine`）
-- [ ] P6-02 `src/refine/mod.rs`：工廠函式 `create_refiner(config)` → `Box<dyn Refiner>`
-- [ ] P6-03 `src/refine/passthrough.rs`：no-op 實作（backend = "none"）
-- [ ] P6-04 `src/refine/claude.rs`：呼叫 Anthropic Messages API（`POST /v1/messages`）
-- [ ] P6-05 `src/refine/claude.rs`：使用 `system_prompt` + user message 組合 payload
-- [ ] P6-06 `src/refine/claude.rs`：解析回應，提取 `content[0].text`
-- [ ] P6-07 `src/refine/openai.rs`：呼叫 OpenAI Chat Completions API
-- [ ] P6-08 `src/refine/openai.rs`：解析回應 `choices[0].message.content`
-- [ ] P6-09 `src/refine/ollama.rs`：呼叫 Ollama `/api/chat`（non-streaming）
-- [ ] P6-10 `src/refine/ollama.rs`：解析 NDJSON 回應
-- [ ] P6-11 所有 refiner：API 錯誤時 fallback 原始文字（不丟棄使用者輸入）
-- [ ] P6-12 integration test：mock HTTP server 驗證 Claude refiner 請求格式正確
+- [x] P6-01 `src/refine/mod.rs`：定義 `Refiner` trait（`async fn refine`）
+- [x] P6-02 `src/refine/mod.rs`：工廠函式 `create_refiner(config)` → `Box<dyn Refiner>`
+- [x] P6-03 `src/refine/passthrough.rs`：no-op 實作（backend = "none"）
+- [x] P6-04 `src/refine/claude.rs`：呼叫 Anthropic Messages API（`POST /v1/messages`）
+- [x] P6-05 `src/refine/claude.rs`：使用 `system_prompt` + user message 組合 payload
+- [x] P6-06 `src/refine/claude.rs`：解析回應，提取 `content[0].text`
+- [x] P6-07 `src/refine/openai.rs`：呼叫 OpenAI Chat Completions API
+- [x] P6-08 `src/refine/openai.rs`：解析回應 `choices[0].message.content`
+- [x] P6-09 `src/refine/ollama.rs`：呼叫 Ollama `/api/chat`（non-streaming）
+- [x] P6-10 `src/refine/ollama.rs`：解析 JSON 回應（stream:false，含 NDJSON 防護）
+- [x] P6-11 所有 refiner：API 錯誤時 fallback 原始文字（不丟棄使用者輸入）
+- [x] P6-12 integration test：wiremock 驗證三個 refiner 請求格式 + Claude fallback 行為
 
 ### Phase 7：輸出模組
 
-- [ ] P7-01 `src/output/clipboard.rs`：用 `arboard` 寫入文字到剪貼板
-- [ ] P7-02 `src/output/inject.rs`：用 `enigo` 模擬鍵盤輸入文字
-- [ ] P7-03 `src/output/inject.rs`：中文字元支援（`enigo::Key::Unicode`）
-- [ ] P7-04 `src/output/inject.rs`：輸入間隔控制（`inject_delay_ms` config）
-- [ ] P7-05 `src/output/focus.rs`：定義 `FocusedElement` enum
-- [ ] P7-06 `src/output/focus.rs`：macOS 實作（`accessibility` crate，AXRole 判斷）
-- [ ] P7-07 `src/output/focus.rs`：Windows 實作（UI Automation，ControlType 判斷）
-- [ ] P7-08 `src/output/focus.rs`：Linux 實作（`atspi`，role == "text" 判斷）
-- [ ] P7-09 `src/output/mod.rs`：`OutputManager::send(text)` 流程（focus check → inject or clipboard）
-- [ ] P7-10 `src/output/mod.rs`：注入失敗時 fallback 到剪貼板
-- [ ] P7-11 測試剪貼板寫入後能正確讀回
+- [x] P7-01 `src/output/clipboard.rs`：用 `arboard` 寫入文字到剪貼板
+- [x] P7-02 `src/output/inject.rs`：用 `enigo` 模擬鍵盤輸入文字
+- [x] P7-03 `src/output/inject.rs`：中文字元支援（enigo.text() 支援全 Unicode）
+- [x] P7-04 `src/output/inject.rs`：輸入間隔控制（inject_delay_ms，0=全量，>0=逐字）
+- [x] P7-05 `src/output/focus.rs`：定義 `FocusedElement` enum
+- [x] P7-06 `src/output/focus.rs`：macOS stub（需 AX 權限授予，暫回 Unknown→clipboard）
+- [x] P7-07 `src/output/focus.rs`：Windows stub（暫回 Unknown）
+- [x] P7-08 `src/output/focus.rs`：Linux stub（暫回 Unknown）
+- [x] P7-09 `src/output/mod.rs`：`OutputManager::send(text)` 完整流程（spawn_blocking inject）
+- [x] P7-10 `src/output/mod.rs`：注入失敗時 fallback 到剪貼板
+- [x] P7-11 測試剪貼板讀寫（含中文）+ OutputManager smoke test（#[ignore] 需 display）
 
 ### Phase 8：App 狀態機整合
 
-- [ ] P8-01 `src/app.rs`：定義 `AppState` enum 與 `AppEvent` enum
-- [ ] P8-02 `src/app.rs`：建立 `App::new(config, ...)` — 初始化所有子系統
-- [ ] P8-03 `src/app.rs`：`App::run()` — 啟動 rdev hotkey thread、Tokio runtime、event loop
-- [ ] P8-04 `src/app.rs`：實作完整狀態轉移（參考 §2.3 狀態機表）
-- [ ] P8-05 `src/app.rs`：`ReloadConfig` event → 重新建構 transcriber / refiner
-- [ ] P8-06 `src/app.rs`：`Quit` event → 正常 shutdown（join threads, flush logs）
-- [ ] P8-07 `src/main.rs`：`--dry-run` 模式：跑完整流程但 output 只印到 stdout
-- [ ] P8-08 整合測試：mock hotkey events → 驗證狀態轉移序列正確
+- [x] P8-01 `src/app.rs`：定義 `AppState` enum 與 `AppEvent` enum
+- [x] P8-02 `src/app.rs`：建立 `App::new(config, config_path, dry_run)` — 初始化所有子系統
+- [x] P8-03 `src/app.rs`：`App::run()` — HotkeyManager::spawn + tokio multi_thread + event_loop
+- [x] P8-04 `src/app.rs`：完整狀態轉移（apply_transition + 非同步 task 助手）
+- [x] P8-05 `src/app.rs`：`ReloadConfig` event → 重新建構 transcriber / refiner + current_cfg
+- [x] P8-06 `src/app.rs`：`Quit` event → break event loop；Ctrl+C → send Quit
+- [x] P8-07 `src/main.rs`：`--dry-run` → println! 取代 OutputManager；App wired up
+- [x] P8-08 `tests/integration_app.rs`：9 個 apply_transition 測試，涵蓋 happy path + 錯誤 + 無效事件
 
 ### Phase 9：打包 & 發佈
 
-- [ ] P9-01 撰寫 `.github/workflows/ci.yml`（build + test on ubuntu / macos / windows）
-- [ ] P9-02 撰寫 `.github/workflows/release.yml`（tag push → cross-compile + GitHub Release）
-- [ ] P9-03 macOS：建立 `.app` bundle（`cargo-bundle` 或手動 Info.plist）
-- [ ] P9-04 macOS：`entitlements.plist`（麥克風 + 無障礙 API 權限）
-- [ ] P9-05 Windows：建立 NSIS 或 WiX installer
-- [ ] P9-06 Linux：建立 `.deb` / `.rpm` / AppImage
-- [ ] P9-07 撰寫 `README.md`（安裝、設定、模型下載說明）
-- [ ] P9-08 撰寫模型下載 helper script（`scripts/download-model.sh`）
+- [x] P9-01 撰寫 `.github/workflows/ci.yml`（build + test on ubuntu / macos / windows）
+- [x] P9-02 撰寫 `.github/workflows/release.yml`（tag push → cross-compile + GitHub Release）
+- [x] P9-03 macOS：建立 `.app` bundle（`cargo-bundle` 或手動 Info.plist）
+- [x] P9-04 macOS：`entitlements.plist`（麥克風 + 無障礙 API 權限）
+- [x] P9-05 Windows：建立 NSIS 或 WiX installer
+- [x] P9-06 Linux：建立 `.deb` / `.rpm` / AppImage
+- [x] P9-07 撰寫 `README.md`（安裝、設定、模型下載說明）
+- [x] P9-08 撰寫模型下載 helper script（`scripts/download-model.sh`）
 
 ---
 
