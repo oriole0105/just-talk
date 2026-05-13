@@ -91,15 +91,40 @@ impl App {
     /// Block the calling thread until the app exits (Ctrl+C or `Quit` event).
     pub fn run(self) -> anyhow::Result<()> {
         let (tx, rx) = mpsc::channel::<AppEvent>(64);
+        let hotkey_cfg = self.config.hotkey.clone();
 
-        // Hotkey listener runs on a background thread.
-        // rdev uses its own internal run-loop (CFRunLoop on macOS, libxdo on Linux).
-        HotkeyManager::spawn(tx.clone(), &self.config.hotkey)?;
-
-        tokio::runtime::Builder::new_multi_thread()
+        let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
-            .build()?
-            .block_on(self.event_loop(tx, rx))
+            .build()?;
+
+        // macOS: rdev::listen requires the main thread (CGEventTap / CFRunLoop).
+        // Move the async event loop to a background thread; run rdev here.
+        #[cfg(target_os = "macos")]
+        {
+            let tx2 = tx.clone();
+            std::thread::Builder::new()
+                .name("event-loop".to_string())
+                .spawn(move || {
+                    let result = rt.block_on(self.event_loop(tx2, rx));
+                    // rdev::listen has no clean stop API; exit the process so the
+                    // main-thread listener also terminates.
+                    let code = if result.is_ok() { 0 } else { 1 };
+                    if let Err(ref e) = result {
+                        tracing::error!("Event loop error: {}", e);
+                    }
+                    std::process::exit(code);
+                })?;
+
+            HotkeyManager::run_on_current_thread(tx, &hotkey_cfg)?;
+            Ok(())
+        }
+
+        // Linux / Windows: rdev can run on any thread.
+        #[cfg(not(target_os = "macos"))]
+        {
+            HotkeyManager::spawn(tx.clone(), &hotkey_cfg)?;
+            rt.block_on(self.event_loop(tx, rx))
+        }
     }
 
     async fn event_loop(

@@ -135,46 +135,66 @@ pub(crate) fn process_event(
 
 pub struct HotkeyManager;
 
+fn parse_config(config: &HotkeyConfig) -> anyhow::Result<(Key, Vec<ModifierGroup>)> {
+    let target_key = parse_key(&config.key)
+        .map_err(|e| anyhow::anyhow!("Invalid hotkey key '{}': {}", config.key, e))?;
+    let required_modifiers: Vec<ModifierGroup> = config
+        .modifiers
+        .iter()
+        .map(|m| ModifierGroup::from_str(m))
+        .collect::<anyhow::Result<_>>()?;
+    Ok((target_key, required_modifiers))
+}
+
+fn make_rdev_callback(
+    sender: mpsc::Sender<AppEvent>,
+    target_key: Key,
+    required_modifiers: Vec<ModifierGroup>,
+) -> impl FnMut(rdev::Event) {
+    let pressed = Mutex::new(HashSet::<Key>::new());
+    move |event: rdev::Event| {
+        if let Ok(mut p) = pressed.lock() {
+            if process_event(&event.event_type, target_key, &required_modifiers, &mut p) {
+                tracing::debug!("Hotkey fired — sending HotkeyPressed");
+                let _ = sender.blocking_send(AppEvent::HotkeyPressed);
+            }
+        }
+    }
+}
+
 impl HotkeyManager {
     /// Parse config and start the hotkey listener in a background thread.
-    /// Returns `Err` immediately if the key string is invalid.
+    /// On Linux / Windows only — do NOT call on macOS (rdev requires main thread).
     pub fn spawn(sender: mpsc::Sender<AppEvent>, config: &HotkeyConfig) -> anyhow::Result<()> {
-        let target_key = parse_key(&config.key)
-            .map_err(|e| anyhow::anyhow!("Invalid hotkey key '{}': {}", config.key, e))?;
-
-        let required_modifiers: Vec<ModifierGroup> = config
-            .modifiers
-            .iter()
-            .map(|m| ModifierGroup::from_str(m))
-            .collect::<anyhow::Result<_>>()?;
-
+        let (target_key, required_modifiers) = parse_config(config)?;
         tracing::info!(key = %config.key, modifiers = ?config.modifiers, "Registering hotkey");
 
         std::thread::Builder::new()
             .name("hotkey-listener".to_string())
             .spawn(move || {
-                // Mutex is owned solely by this thread; lock never contends.
-                let pressed = Mutex::new(HashSet::<Key>::new());
-
-                let result = listen(move |event: rdev::Event| {
-                    if let Ok(mut p) = pressed.lock() {
-                        if process_event(
-                            &event.event_type,
-                            target_key,
-                            &required_modifiers,
-                            &mut p,
-                        ) {
-                            tracing::debug!("Hotkey fired — sending HotkeyPressed");
-                            let _ = sender.blocking_send(AppEvent::HotkeyPressed);
-                        }
-                    }
-                });
-
+                let result = listen(make_rdev_callback(sender, target_key, required_modifiers));
                 if let Err(e) = result {
                     tracing::error!("rdev listener exited: {:?}", e);
                 }
             })?;
 
+        Ok(())
+    }
+
+    /// Run the hotkey listener on the **current** thread (blocking).
+    ///
+    /// Required on macOS: `rdev::listen` uses `CGEventTap` which only delivers
+    /// events when called from the main thread's run loop.
+    pub fn run_on_current_thread(
+        sender: mpsc::Sender<AppEvent>,
+        config: &HotkeyConfig,
+    ) -> anyhow::Result<()> {
+        let (target_key, required_modifiers) = parse_config(config)?;
+        tracing::info!(key = %config.key, modifiers = ?config.modifiers, "Registering hotkey (main thread)");
+
+        if let Err(e) = listen(make_rdev_callback(sender, target_key, required_modifiers)) {
+            tracing::error!("rdev listener exited: {:?}", e);
+        }
         Ok(())
     }
 }

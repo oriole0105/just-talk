@@ -6,30 +6,24 @@ use std::path::{Path, PathBuf};
 // Backend enums
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum TranscribeBackend {
+    #[default]
     Local,
     #[serde(rename = "openai")]
     OpenAi,
 }
 
-impl Default for TranscribeBackend {
-    fn default() -> Self { Self::Local }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum RefineBackend {
     Claude,
     #[serde(rename = "openai")]
     OpenAi,
     Ollama,
+    #[default]
     None,
-}
-
-impl Default for RefineBackend {
-    fn default() -> Self { Self::None }
 }
 
 // ---------------------------------------------------------------------------
