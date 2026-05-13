@@ -30,16 +30,35 @@ pub enum RefineBackend {
 // Config structs
 // ---------------------------------------------------------------------------
 
+/// How the hotkey is triggered.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum HotkeyTrigger {
+    /// Fire on a single key press (default).
+    #[default]
+    Press,
+    /// Fire when the key is pressed twice within `double_tap_ms` milliseconds.
+    DoubleTap,
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(default)]
 pub struct HotkeyConfig {
     pub key: String,
     pub modifiers: Vec<String>,
+    pub trigger: HotkeyTrigger,
+    /// Window in milliseconds for double-tap detection (default: 300).
+    pub double_tap_ms: u64,
 }
 
 impl Default for HotkeyConfig {
     fn default() -> Self {
-        Self { key: "F4".to_string(), modifiers: vec![] }
+        Self {
+            key: "F4".to_string(),
+            modifiers: vec![],
+            trigger: HotkeyTrigger::Press,
+            double_tap_ms: 300,
+        }
     }
 }
 

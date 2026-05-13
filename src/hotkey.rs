@@ -13,7 +13,7 @@ use std::sync::Mutex;
 use tokio::sync::mpsc;
 
 use crate::app::AppEvent;
-use crate::config::HotkeyConfig;
+use crate::config::{HotkeyConfig, HotkeyTrigger};
 
 // ---------------------------------------------------------------------------
 // Modifier abstraction
@@ -79,6 +79,9 @@ pub(crate) fn parse_key(s: &str) -> anyhow::Result<Key> {
         "DownArrow"  | "Down"        => Key::DownArrow,
         "LeftArrow"  | "Left"        => Key::LeftArrow,
         "RightArrow" | "Right"       => Key::RightArrow,
+        // Meta / Command / Win / Super keys (standalone, not as modifier)
+        "RightCmd" | "RightCommand" | "RightMeta" | "RightWin" | "RightSuper" => Key::MetaRight,
+        "LeftCmd"  | "LeftCommand"  | "LeftMeta"  | "LeftWin"  | "LeftSuper"  => Key::MetaLeft,
         // Single letter or digit (case-insensitive)
         s if s.len() == 1 => match s.to_uppercase().as_str() {
             "A" => Key::KeyA, "B" => Key::KeyB, "C" => Key::KeyC,
@@ -135,7 +138,7 @@ pub(crate) fn process_event(
 
 pub struct HotkeyManager;
 
-fn parse_config(config: &HotkeyConfig) -> anyhow::Result<(Key, Vec<ModifierGroup>)> {
+fn parse_config(config: &HotkeyConfig) -> anyhow::Result<(Key, Vec<ModifierGroup>, Option<u64>)> {
     let target_key = parse_key(&config.key)
         .map_err(|e| anyhow::anyhow!("Invalid hotkey key '{}': {}", config.key, e))?;
     let required_modifiers: Vec<ModifierGroup> = config
@@ -143,21 +146,52 @@ fn parse_config(config: &HotkeyConfig) -> anyhow::Result<(Key, Vec<ModifierGroup
         .iter()
         .map(|m| ModifierGroup::from_str(m))
         .collect::<anyhow::Result<_>>()?;
-    Ok((target_key, required_modifiers))
+    let double_tap_ms = (config.trigger == HotkeyTrigger::DoubleTap).then_some(config.double_tap_ms);
+    Ok((target_key, required_modifiers, double_tap_ms))
 }
 
 fn make_rdev_callback(
     sender: mpsc::Sender<AppEvent>,
     target_key: Key,
     required_modifiers: Vec<ModifierGroup>,
+    double_tap_ms: Option<u64>,
 ) -> impl FnMut(rdev::Event) {
     let pressed = Mutex::new(HashSet::<Key>::new());
+    // Last time the target key was released; used only for double-tap mode.
+    let last_release: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+
     move |event: rdev::Event| {
-        if let Ok(mut p) = pressed.lock() {
-            if process_event(&event.event_type, target_key, &required_modifiers, &mut p) {
-                tracing::debug!("Hotkey fired — sending HotkeyPressed");
-                let _ = sender.blocking_send(AppEvent::HotkeyPressed);
+        let Ok(mut p) = pressed.lock() else { return };
+
+        // `process_event` updates `pressed` and returns true when the key combo fires.
+        let single_fired = process_event(&event.event_type, target_key, &required_modifiers, &mut p);
+
+        // For double-tap: track releases and require two presses within the window.
+        let fire = if let Some(threshold) = double_tap_ms {
+            match &event.event_type {
+                rdev::EventType::KeyRelease(key) if *key == target_key => {
+                    if let Ok(mut lr) = last_release.lock() {
+                        *lr = Some(std::time::Instant::now());
+                    }
+                    false
+                }
+                rdev::EventType::KeyPress(_) if single_fired => {
+                    let Ok(mut lr) = last_release.lock() else { return };
+                    let is_double = lr
+                        .map(|t| t.elapsed().as_millis() < threshold as u128)
+                        .unwrap_or(false);
+                    *lr = None;
+                    is_double
+                }
+                _ => false,
             }
+        } else {
+            single_fired
+        };
+
+        if fire {
+            tracing::debug!("Hotkey fired — sending HotkeyPressed");
+            let _ = sender.blocking_send(AppEvent::HotkeyPressed);
         }
     }
 }
@@ -166,13 +200,14 @@ impl HotkeyManager {
     /// Parse config and start the hotkey listener in a background thread.
     /// On Linux / Windows only — do NOT call on macOS (rdev requires main thread).
     pub fn spawn(sender: mpsc::Sender<AppEvent>, config: &HotkeyConfig) -> anyhow::Result<()> {
-        let (target_key, required_modifiers) = parse_config(config)?;
-        tracing::info!(key = %config.key, modifiers = ?config.modifiers, "Registering hotkey");
+        let (target_key, required_modifiers, double_tap_ms) = parse_config(config)?;
+        tracing::info!(key = %config.key, modifiers = ?config.modifiers,
+            trigger = ?config.trigger, "Registering hotkey");
 
         std::thread::Builder::new()
             .name("hotkey-listener".to_string())
             .spawn(move || {
-                let result = listen(make_rdev_callback(sender, target_key, required_modifiers));
+                let result = listen(make_rdev_callback(sender, target_key, required_modifiers, double_tap_ms));
                 if let Err(e) = result {
                     tracing::error!("rdev listener exited: {:?}", e);
                 }
@@ -189,10 +224,11 @@ impl HotkeyManager {
         sender: mpsc::Sender<AppEvent>,
         config: &HotkeyConfig,
     ) -> anyhow::Result<()> {
-        let (target_key, required_modifiers) = parse_config(config)?;
-        tracing::info!(key = %config.key, modifiers = ?config.modifiers, "Registering hotkey (main thread)");
+        let (target_key, required_modifiers, double_tap_ms) = parse_config(config)?;
+        tracing::info!(key = %config.key, modifiers = ?config.modifiers,
+            trigger = ?config.trigger, "Registering hotkey (main thread)");
 
-        if let Err(e) = listen(make_rdev_callback(sender, target_key, required_modifiers)) {
+        if let Err(e) = listen(make_rdev_callback(sender, target_key, required_modifiers, double_tap_ms)) {
             tracing::error!("rdev listener exited: {:?}", e);
         }
         Ok(())
