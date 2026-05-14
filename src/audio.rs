@@ -10,8 +10,11 @@ use std::sync::{Arc, Mutex};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, Stream, SupportedStreamConfig};
-use rubato::{Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType,
-              WindowFunction};
+use rubato::{
+    Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+};
+
+use crate::overlay::SharedOverlay;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -40,6 +43,7 @@ pub struct AudioCapture {
     stream_config: SupportedStreamConfig,
     max_secs: u64,
     state: Option<RecordingState>,
+    overlay: Option<SharedOverlay>,
 }
 
 impl AudioCapture {
@@ -62,7 +66,18 @@ impl AudioCapture {
             "Audio device opened"
         );
 
-        Ok(Self { device, stream_config, max_secs: DEFAULT_MAX_SECS, state: None })
+        Ok(Self {
+            device,
+            stream_config,
+            max_secs: DEFAULT_MAX_SECS,
+            state: None,
+            overlay: None,
+        })
+    }
+
+    /// Attach an overlay for live waveform visualisation.
+    pub fn set_overlay(&mut self, overlay: SharedOverlay) {
+        self.overlay = Some(overlay);
     }
 
     /// Begin recording. Calling `start()` while already recording is a no-op.
@@ -81,12 +96,20 @@ impl AudioCapture {
             &self.stream_config,
             Arc::clone(&buffer),
             max_samples,
+            self.overlay.clone(),
         )?;
-        stream.play().map_err(|e| anyhow::anyhow!("Stream play error: {}", e))?;
+        stream
+            .play()
+            .map_err(|e| anyhow::anyhow!("Stream play error: {}", e))?;
 
         tracing::info!("Recording started (max {}s)", self.max_secs);
 
-        self.state = Some(RecordingState { _stream: stream, buffer, sample_rate, channels });
+        self.state = Some(RecordingState {
+            _stream: stream,
+            buffer,
+            sample_rate,
+            channels,
+        });
         Ok(())
     }
 
@@ -201,11 +224,21 @@ fn append_samples(data: &[f32], buffer: &Arc<Mutex<Vec<f32>>>, max_samples: usiz
     }
 }
 
+fn push_to_overlay(data: &[f32], overlay: &Option<SharedOverlay>) {
+    if let Some(ov) = overlay {
+        // try_lock: skip if contended — never stall the realtime audio thread.
+        if let Ok(mut state) = ov.try_lock() {
+            state.push_samples(data);
+        }
+    }
+}
+
 fn build_stream(
     device: &cpal::Device,
     config: &SupportedStreamConfig,
     buffer: Arc<Mutex<Vec<f32>>>,
     max_samples: usize,
+    overlay: Option<SharedOverlay>,
 ) -> anyhow::Result<Stream> {
     let err_fn = |e| tracing::error!("Audio stream error: {}", e);
     let cfg = config.config();
@@ -213,19 +246,25 @@ fn build_stream(
     let stream = match config.sample_format() {
         SampleFormat::F32 => {
             let buf = Arc::clone(&buffer);
+            let ov = overlay.clone();
             device.build_input_stream(
                 &cfg,
-                move |data: &[f32], _| append_samples(data, &buf, max_samples),
+                move |data: &[f32], _| {
+                    push_to_overlay(data, &ov);
+                    append_samples(data, &buf, max_samples);
+                },
                 err_fn,
                 None,
             )
         }
         SampleFormat::I16 => {
             let buf = Arc::clone(&buffer);
+            let ov = overlay.clone();
             device.build_input_stream(
                 &cfg,
                 move |data: &[i16], _| {
                     let floats: Vec<f32> = data.iter().map(|&s| s as f32 / 32_768.0).collect();
+                    push_to_overlay(&floats, &ov);
                     append_samples(&floats, &buf, max_samples);
                 },
                 err_fn,
@@ -234,11 +273,15 @@ fn build_stream(
         }
         SampleFormat::U16 => {
             let buf = Arc::clone(&buffer);
+            let ov = overlay.clone();
             device.build_input_stream(
                 &cfg,
                 move |data: &[u16], _| {
-                    let floats: Vec<f32> =
-                        data.iter().map(|&s| (s as f32 - 32_768.0) / 32_768.0).collect();
+                    let floats: Vec<f32> = data
+                        .iter()
+                        .map(|&s| (s as f32 - 32_768.0) / 32_768.0)
+                        .collect();
+                    push_to_overlay(&floats, &ov);
                     append_samples(&floats, &buf, max_samples);
                 },
                 err_fn,

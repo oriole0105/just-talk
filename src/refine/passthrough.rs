@@ -1,6 +1,6 @@
+use super::Refiner;
 use anyhow::Result;
 use async_trait::async_trait;
-use super::Refiner;
 
 /// No-op refiner: returns the raw transcript unchanged.
 pub struct PassthroughRefiner;

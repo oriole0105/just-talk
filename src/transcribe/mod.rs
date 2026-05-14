@@ -1,6 +1,6 @@
+use crate::config::{TranscribeBackend, TranscribeConfig};
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::config::{TranscribeBackend, TranscribeConfig};
 
 pub mod local;
 pub mod remote;
@@ -16,7 +16,7 @@ pub trait Transcriber: Send + Sync {
 /// Returns `Err` if the backend cannot be initialised (e.g. model file missing).
 pub fn create_transcriber(config: &TranscribeConfig) -> Result<Box<dyn Transcriber + Send + Sync>> {
     match config.backend {
-        TranscribeBackend::Local  => Ok(Box::new(local::LocalTranscriber::new(config)?)),
+        TranscribeBackend::Local => Ok(Box::new(local::LocalTranscriber::new(config)?)),
         TranscribeBackend::OpenAi => Ok(Box::new(remote::RemoteTranscriber::new(config))),
     }
 }

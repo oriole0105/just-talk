@@ -123,7 +123,11 @@ pub struct OutputConfig {
 
 impl Default for OutputConfig {
     fn default() -> Self {
-        Self { prefer_inject: true, inject_delay_ms: 20, clipboard_fallback: true }
+        Self {
+            prefer_inject: true,
+            inject_delay_ms: 20,
+            clipboard_fallback: true,
+        }
     }
 }
 
@@ -156,7 +160,11 @@ impl Config {
     pub fn load_or_default(path: Option<&Path>) -> Self {
         match path {
             Some(p) => Self::load(p).unwrap_or_else(|e| {
-                tracing::warn!("Failed to load config from {}: {}. Using defaults.", p.display(), e);
+                tracing::warn!(
+                    "Failed to load config from {}: {}. Using defaults.",
+                    p.display(),
+                    e
+                );
                 Self::default()
             }),
             None => {

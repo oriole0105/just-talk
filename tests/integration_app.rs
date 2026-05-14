@@ -3,17 +3,25 @@
 //! `apply_transition` is a pure function, so all tests here run without
 //! audio hardware, network, or a display server.
 
-use just_talk::app::{AppEvent, AppState, apply_transition};
+use just_talk::app::{apply_transition, AppEvent, AppState};
 use just_talk::error::JustTalkError;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn hotkey() -> AppEvent { AppEvent::HotkeyPressed }
-fn tdone(s: &str) -> AppEvent { AppEvent::TranscribeDone(s.into()) }
-fn rdone(s: &str) -> AppEvent { AppEvent::RefineDone(s.into()) }
-fn err() -> AppEvent { AppEvent::Error(JustTalkError::audio("mock error")) }
+fn hotkey() -> AppEvent {
+    AppEvent::HotkeyPressed
+}
+fn tdone(s: &str) -> AppEvent {
+    AppEvent::TranscribeDone(s.into())
+}
+fn rdone(s: &str) -> AppEvent {
+    AppEvent::RefineDone(s.into())
+}
+fn err() -> AppEvent {
+    AppEvent::Error(JustTalkError::audio("mock error"))
+}
 
 // ---------------------------------------------------------------------------
 // Happy-path
@@ -22,11 +30,11 @@ fn err() -> AppEvent { AppEvent::Error(JustTalkError::audio("mock error")) }
 #[test]
 fn full_cycle_state_sequence() {
     let steps: &[(AppState, AppEvent, AppState)] = &[
-        (AppState::Idle,         hotkey(),         AppState::Recording),
-        (AppState::Recording,    hotkey(),         AppState::Transcribing),
-        (AppState::Transcribing, tdone("raw"),     AppState::Refining),
-        (AppState::Refining,     rdone("refined"), AppState::Injecting),
-        (AppState::Injecting,    AppEvent::OutputDone, AppState::Idle),
+        (AppState::Idle, hotkey(), AppState::Recording),
+        (AppState::Recording, hotkey(), AppState::Transcribing),
+        (AppState::Transcribing, tdone("raw"), AppState::Refining),
+        (AppState::Refining, rdone("refined"), AppState::Injecting),
+        (AppState::Injecting, AppEvent::OutputDone, AppState::Idle),
     ];
 
     let mut state = AppState::Idle;
@@ -85,7 +93,7 @@ fn reload_config_returns_none() {
 #[test]
 fn hotkey_ignored_in_transcribing_and_injecting() {
     assert_eq!(apply_transition(&AppState::Transcribing, &hotkey()), None);
-    assert_eq!(apply_transition(&AppState::Injecting,    &hotkey()), None);
+    assert_eq!(apply_transition(&AppState::Injecting, &hotkey()), None);
 }
 
 #[test]
@@ -105,7 +113,11 @@ fn refine_done_ignored_outside_refining() {
 #[test]
 fn output_done_ignored_outside_injecting() {
     for s in [AppState::Idle, AppState::Recording, AppState::Refining] {
-        assert_eq!(apply_transition(&s, &AppEvent::OutputDone), None, "state={s:?}");
+        assert_eq!(
+            apply_transition(&s, &AppEvent::OutputDone),
+            None,
+            "state={s:?}"
+        );
     }
 }
 
@@ -116,10 +128,10 @@ fn output_done_ignored_outside_injecting() {
 #[test]
 fn two_full_cycles() {
     let cycle: &[(AppEvent, AppState)] = &[
-        (hotkey(),             AppState::Recording),
-        (hotkey(),             AppState::Transcribing),
-        (tdone("a"),           AppState::Refining),
-        (rdone("A"),           AppState::Injecting),
+        (hotkey(), AppState::Recording),
+        (hotkey(), AppState::Transcribing),
+        (tdone("a"), AppState::Refining),
+        (rdone("A"), AppState::Injecting),
         (AppEvent::OutputDone, AppState::Idle),
     ];
 

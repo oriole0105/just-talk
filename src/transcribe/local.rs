@@ -4,10 +4,10 @@
 //! Without the feature the struct still compiles but `transcribe()` returns an
 //! actionable error rather than a link-time failure.
 
+use super::Transcriber;
+use crate::config::TranscribeConfig;
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::config::TranscribeConfig;
-use super::Transcriber;
 
 // ---------------------------------------------------------------------------
 // Struct definition — ctx field is conditional on the feature
@@ -27,18 +27,19 @@ impl LocalTranscriber {
     pub fn new(config: &TranscribeConfig) -> anyhow::Result<Self> {
         // Without the feature, compile a no-op stub that errors at runtime.
         #[cfg(not(feature = "local-whisper"))]
-        return Ok(Self { config: config.clone() });
+        return Ok(Self {
+            config: config.clone(),
+        });
 
         // With the feature: eagerly load the ggml model so transcribe() is fast.
         #[cfg(feature = "local-whisper")]
         {
-            let model_path = config
-                .model_path
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!(
+            let model_path = config.model_path.as_ref().ok_or_else(|| {
+                anyhow::anyhow!(
                     "transcribe.model_path not configured; \
                      set it in config.toml or download a ggml model"
-                ))?;
+                )
+            })?;
 
             tracing::info!(path = %model_path.display(), "Loading whisper model");
 

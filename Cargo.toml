@@ -93,6 +93,10 @@ dirs         = "5"
 notify       = "6"        # filesystem watcher for config hot-reload
 notify-rust  = "4"        # OS notification popups
 
+# Overlay UI
+egui         = "0.29"
+eframe       = "0.29"
+
 # System tray (optional)
 tray-icon    = { version = "0.14", optional = true }
 

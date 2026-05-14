@@ -11,8 +11,8 @@ pub mod clipboard;
 pub mod focus;
 pub mod inject;
 
-use anyhow::Result;
 use crate::config::OutputConfig;
+use anyhow::Result;
 use focus::FocusedElement;
 
 pub struct OutputManager {
@@ -21,7 +21,9 @@ pub struct OutputManager {
 
 impl OutputManager {
     pub fn new(config: &OutputConfig) -> Self {
-        Self { config: config.clone() }
+        Self {
+            config: config.clone(),
+        }
     }
 
     /// Deliver `text` to the user according to the output config.
@@ -37,20 +39,42 @@ impl OutputManager {
             // TextInput or Unknown (focus detection not implemented) → try injection.
             FocusedElement::TextInput | FocusedElement::Unknown => {
                 let text_owned = text.to_string();
+                #[cfg_attr(target_os = "macos", allow(unused_variables))]
                 let delay = self.config.inject_delay_ms;
 
-                // inject::type_text is blocking (enigo FFI + optional sleep).
-                let result = tokio::task::spawn_blocking(move || {
-                    inject::type_text(&text_owned, delay)
-                })
-                .await
-                .map_err(|e| anyhow::anyhow!("spawn_blocking join error: {}", e))?;
+                #[cfg(target_os = "macos")]
+                {
+                    // On macOS, write to clipboard then simulate Cmd+V.
+                    // This avoids character-by-character IME issues and is immune
+                    // to the overlay window transiently stealing keyboard focus.
+                    clipboard::write(&text_owned)?;
+                    let result = tokio::task::spawn_blocking(move || {
+                        // 80 ms pre-delay — lets the user's app regain key window
+                        // status after the overlay's last repaint cycle.
+                        inject::paste_macos(80)
+                    })
+                    .await
+                    .map_err(|e| anyhow::anyhow!("spawn_blocking join error: {}", e))?;
 
-                if let Err(e) = result {
-                    tracing::warn!(error = %e, "Key injection failed");
-                    if self.config.clipboard_fallback {
-                        tracing::info!("Falling back to clipboard");
-                        clipboard::write(text)?;
+                    if let Err(e) = result {
+                        tracing::warn!(error = %e, "Cmd+V paste failed — text is on clipboard");
+                    }
+                }
+
+                #[cfg(not(target_os = "macos"))]
+                {
+                    // inject::type_text is blocking (enigo FFI + optional sleep).
+                    let result =
+                        tokio::task::spawn_blocking(move || inject::type_text(&text_owned, delay))
+                            .await
+                            .map_err(|e| anyhow::anyhow!("spawn_blocking join error: {}", e))?;
+
+                    if let Err(e) = result {
+                        tracing::warn!(error = %e, "Key injection failed");
+                        if self.config.clipboard_fallback {
+                            tracing::info!("Falling back to clipboard");
+                            clipboard::write(text)?;
+                        }
                     }
                 }
             }
@@ -88,7 +112,10 @@ mod tests {
 
     #[test]
     fn prefer_inject_false_config() {
-        let cfg = OutputConfig { prefer_inject: false, ..OutputConfig::default() };
+        let cfg = OutputConfig {
+            prefer_inject: false,
+            ..OutputConfig::default()
+        };
         let m = OutputManager::new(&cfg);
         assert!(!m.config.prefer_inject);
     }

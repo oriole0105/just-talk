@@ -3,10 +3,10 @@
 //! Default base URL: http://localhost:11434.
 //! On any API error the raw transcript is returned unchanged (P6-11).
 
+use super::Refiner;
+use crate::config::RefineConfig;
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::config::RefineConfig;
-use super::Refiner;
 
 const DEFAULT_BASE_URL: &str = "http://localhost:11434";
 
@@ -17,7 +17,10 @@ pub struct OllamaRefiner {
 
 impl OllamaRefiner {
     pub fn new(config: &RefineConfig) -> Self {
-        Self { config: config.clone(), client: reqwest::Client::new() }
+        Self {
+            config: config.clone(),
+            client: reqwest::Client::new(),
+        }
     }
 }
 
@@ -74,10 +77,7 @@ pub async fn call_ollama(
         .map_err(|e| anyhow::anyhow!("Ollama response read failed: {}", e))?;
 
     // Parse only the first non-empty line in case Ollama sends NDJSON anyway.
-    let first_line = text
-        .lines()
-        .find(|l| !l.trim().is_empty())
-        .unwrap_or(&text);
+    let first_line = text.lines().find(|l| !l.trim().is_empty()).unwrap_or(&text);
 
     let body: serde_json::Value = serde_json::from_str(first_line)
         .map_err(|e| anyhow::anyhow!("Ollama JSON parse failed: {} — body: {}", e, first_line))?;

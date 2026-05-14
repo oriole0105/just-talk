@@ -3,10 +3,10 @@
 //! Flow: f32 PCM → in-memory WAV (hound) → multipart POST (reqwest) → parse JSON.
 //! Retries up to 2 additional times on network/5xx errors with exponential backoff.
 
+use super::Transcriber;
+use crate::config::TranscribeConfig;
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::config::TranscribeConfig;
-use super::Transcriber;
 
 const OPENAI_BASE_URL: &str = "https://api.openai.com";
 const MAX_RETRIES: u32 = 2;
@@ -197,10 +197,7 @@ mod tests {
             .collect();
         assert_eq!(decoded.len(), pcm.len());
         for (orig, dec) in pcm.iter().zip(decoded.iter()) {
-            assert!(
-                (orig - dec).abs() < 1e-6,
-                "mismatch: orig={orig} dec={dec}"
-            );
+            assert!((orig - dec).abs() < 1e-6, "mismatch: orig={orig} dec={dec}");
         }
     }
 

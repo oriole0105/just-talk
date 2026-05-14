@@ -14,7 +14,7 @@
 //! ```
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 use crate::audio::AudioCapture;
@@ -23,6 +23,7 @@ use crate::error::JustTalkError;
 use crate::hotkey::HotkeyManager;
 use crate::notification;
 use crate::output::OutputManager;
+use crate::overlay::{self, OverlayApp, OverlayState, SharedOverlay};
 use crate::refine::{self, Refiner};
 use crate::transcribe::{self, Transcriber};
 
@@ -52,7 +53,7 @@ pub enum AppEvent {
 
 // Type aliases to reduce verbosity when storing trait objects in Arc.
 type DynTranscriber = Arc<dyn Transcriber + Send + Sync>;
-type DynRefiner     = Arc<dyn Refiner     + Send + Sync>;
+type DynRefiner = Arc<dyn Refiner + Send + Sync>;
 
 // ---------------------------------------------------------------------------
 // Pure state transition (no side effects — testable without async)
@@ -62,12 +63,12 @@ type DynRefiner     = Arc<dyn Refiner     + Send + Sync>;
 /// is silently ignored in the current state.
 pub fn apply_transition(state: &AppState, event: &AppEvent) -> Option<AppState> {
     match (state, event) {
-        (AppState::Idle,         AppEvent::HotkeyPressed)     => Some(AppState::Recording),
-        (AppState::Recording,    AppEvent::HotkeyPressed)     => Some(AppState::Transcribing),
+        (AppState::Idle, AppEvent::HotkeyPressed) => Some(AppState::Recording),
+        (AppState::Recording, AppEvent::HotkeyPressed) => Some(AppState::Transcribing),
         (AppState::Transcribing, AppEvent::TranscribeDone(_)) => Some(AppState::Refining),
-        (AppState::Refining,     AppEvent::RefineDone(_))     => Some(AppState::Injecting),
-        (AppState::Injecting,    AppEvent::OutputDone)        => Some(AppState::Idle),
-        (_,                      AppEvent::Error(_))          => Some(AppState::Idle),
+        (AppState::Refining, AppEvent::RefineDone(_)) => Some(AppState::Injecting),
+        (AppState::Injecting, AppEvent::OutputDone) => Some(AppState::Idle),
+        (_, AppEvent::Error(_)) => Some(AppState::Idle),
         // ReloadConfig and Quit are handled as side-effects; no state change.
         _ => None,
     }
@@ -85,60 +86,78 @@ pub struct App {
 
 impl App {
     pub fn new(config: Config, config_path: Option<PathBuf>, dry_run: bool) -> Self {
-        Self { config, config_path, dry_run }
+        Self {
+            config,
+            config_path,
+            dry_run,
+        }
     }
 
     /// Block the calling thread until the app exits (Ctrl+C or `Quit` event).
     pub fn run(self) -> anyhow::Result<()> {
+        let overlay: SharedOverlay = Arc::new(Mutex::new(OverlayState::default()));
+
         let (tx, rx) = mpsc::channel::<AppEvent>(64);
         let hotkey_cfg = self.config.hotkey.clone();
+
+        // On macOS: polls CGEventSourceKeyState (no TSM calls — avoids macOS 26 crash).
+        // On Linux/Windows: rdev::listen on a background thread.
+        HotkeyManager::spawn(tx.clone(), &hotkey_cfg)?;
 
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
 
-        // macOS: rdev::listen requires the main thread (CGEventTap / CFRunLoop).
-        // Move the async event loop to a background thread; run rdev here.
-        #[cfg(target_os = "macos")]
-        {
-            let tx2 = tx.clone();
-            std::thread::Builder::new()
-                .name("event-loop".to_string())
-                .spawn(move || {
-                    let result = rt.block_on(self.event_loop(tx2, rx));
-                    // rdev::listen has no clean stop API; exit the process so the
-                    // main-thread listener also terminates.
-                    let code = if result.is_ok() { 0 } else { 1 };
-                    if let Err(ref e) = result {
-                        tracing::error!("Event loop error: {}", e);
-                    }
-                    std::process::exit(code);
-                })?;
+        // Tokio event loop on a background thread — eframe must own the main thread.
+        let overlay2 = Arc::clone(&overlay);
+        std::thread::Builder::new()
+            .name("event-loop".to_string())
+            .spawn(move || {
+                let result = rt.block_on(self.event_loop(tx, rx, overlay2));
+                if let Err(ref e) = result {
+                    tracing::error!("Event loop error: {}", e);
+                }
+                // event_loop already sets overlay.quit = true before returning,
+                // which causes eframe to close on the next repaint (~100 ms).
+            })?;
 
-            HotkeyManager::run_on_current_thread(tx, &hotkey_cfg)?;
-            Ok(())
-        }
+        // eframe must run on the main thread (macOS NSApplication requirement).
+        let options = eframe::NativeOptions {
+            viewport: egui::ViewportBuilder::default()
+                .with_decorations(false)
+                .with_transparent(true)
+                .with_always_on_top()
+                .with_resizable(false)
+                .with_active(false) // never steal keyboard focus
+                .with_mouse_passthrough(true)
+                .with_inner_size([overlay::WINDOW_W, overlay::WINDOW_H]),
+            ..Default::default()
+        };
 
-        // Linux / Windows: rdev can run on any thread.
-        #[cfg(not(target_os = "macos"))]
-        {
-            HotkeyManager::spawn(tx.clone(), &hotkey_cfg)?;
-            rt.block_on(self.event_loop(tx, rx))
-        }
+        eframe::run_native(
+            "just-talk",
+            options,
+            Box::new(|_cc| Ok(Box::new(OverlayApp::new(overlay)))),
+        )
+        .map_err(|e| anyhow::anyhow!("eframe error: {e}"))
     }
 
     async fn event_loop(
         self,
         tx: mpsc::Sender<AppEvent>,
         mut rx: mpsc::Receiver<AppEvent>,
+        overlay: SharedOverlay,
     ) -> anyhow::Result<()> {
-        let App { config, config_path, dry_run } = self;
+        let App {
+            config,
+            config_path,
+            dry_run,
+        } = self;
 
         // Initialise subsystems.
         let mut transcriber: DynTranscriber =
             Arc::from(transcribe::create_transcriber(&config.transcribe)?);
-        let mut refiner: DynRefiner =
-            Arc::from(refine::create_refiner(&config.refine));
+        let mut refiner: DynRefiner = Arc::from(refine::create_refiner(&config.refine));
         let mut current_cfg = config;
 
         // Config hot-reload watcher (dropped when event_loop exits).
@@ -175,14 +194,14 @@ impl App {
             // when reassigning `state` inside arms.
             let s = state.clone();
             match (s, event) {
-
                 // ── Idle → Recording ─────────────────────────────────────
                 (AppState::Idle, AppEvent::HotkeyPressed) => {
-                    match start_recording() {
+                    match start_recording(Arc::clone(&overlay)) {
                         Ok(cap) => {
                             audio = Some(cap);
                             state = AppState::Recording;
-                            notification::show("just-talk", "🎙 Recording…");
+                            overlay.lock().unwrap().set_recording();
+                            notification::show("just-talk", "Recording…");
                             tracing::info!("→ Recording");
                         }
                         Err(e) => {
@@ -195,6 +214,7 @@ impl App {
                 // ── Recording → Transcribing ──────────────────────────────
                 (AppState::Recording, AppEvent::HotkeyPressed) => {
                     state = AppState::Transcribing;
+                    overlay.lock().unwrap().set_processing("Transcribing…");
                     notification::show("just-talk", "Transcribing…");
                     tracing::info!("→ Transcribing");
 
@@ -223,6 +243,7 @@ impl App {
                 // ── Transcribing → Refining ───────────────────────────────
                 (AppState::Transcribing, AppEvent::TranscribeDone(raw)) => {
                     state = AppState::Refining;
+                    overlay.lock().unwrap().set_processing("Refining…");
                     tracing::info!(chars = raw.len(), "→ Refining");
 
                     let tx2 = tx.clone();
@@ -254,6 +275,7 @@ impl App {
                 // ── Injecting → Idle ──────────────────────────────────────
                 (AppState::Injecting, AppEvent::OutputDone) => {
                     state = AppState::Idle;
+                    overlay.lock().unwrap().start_fade_out();
                     tracing::info!("→ Idle");
                 }
 
@@ -261,6 +283,7 @@ impl App {
                 (_, AppEvent::Error(e)) => {
                     tracing::error!("Error in {:?}: {}", state, e);
                     notification::show_error("just-talk", &e.to_string());
+                    overlay.lock().unwrap().start_fade_out();
                     audio = None;
                     state = AppState::Idle;
                 }
@@ -287,7 +310,6 @@ impl App {
                 // ── Quit ──────────────────────────────────────────────────
                 (_, AppEvent::Quit) => {
                     tracing::info!("Quit — exiting event loop");
-                    notification::show("just-talk", "Goodbye!");
                     break;
                 }
 
@@ -298,6 +320,8 @@ impl App {
             }
         }
 
+        // Signal eframe to close on the next repaint (~100 ms).
+        overlay.lock().unwrap().quit = true;
         Ok(())
     }
 }
@@ -306,8 +330,9 @@ impl App {
 // Helper: open device + start stream
 // ---------------------------------------------------------------------------
 
-fn start_recording() -> anyhow::Result<AudioCapture> {
+fn start_recording(overlay: SharedOverlay) -> anyhow::Result<AudioCapture> {
     let mut cap = AudioCapture::new()?;
+    cap.set_overlay(overlay);
     cap.start()?;
     Ok(cap)
 }
@@ -351,19 +376,27 @@ async fn run_output(out: OutputManager, text: String) -> AppEvent {
 mod tests {
     use super::*;
 
-    fn hotkey() -> AppEvent { AppEvent::HotkeyPressed }
-    fn tdone(s: &str) -> AppEvent { AppEvent::TranscribeDone(s.into()) }
-    fn rdone(s: &str) -> AppEvent { AppEvent::RefineDone(s.into()) }
-    fn err() -> AppEvent { AppEvent::Error(JustTalkError::audio("test")) }
+    fn hotkey() -> AppEvent {
+        AppEvent::HotkeyPressed
+    }
+    fn tdone(s: &str) -> AppEvent {
+        AppEvent::TranscribeDone(s.into())
+    }
+    fn rdone(s: &str) -> AppEvent {
+        AppEvent::RefineDone(s.into())
+    }
+    fn err() -> AppEvent {
+        AppEvent::Error(JustTalkError::audio("test"))
+    }
 
     #[test]
     fn happy_path_full_cycle() {
         let seq = [
-            (AppState::Idle,         hotkey(),        AppState::Recording),
-            (AppState::Recording,    hotkey(),        AppState::Transcribing),
-            (AppState::Transcribing, tdone("hello"),  AppState::Refining),
-            (AppState::Refining,     rdone("Hello."), AppState::Injecting),
-            (AppState::Injecting,    AppEvent::OutputDone, AppState::Idle),
+            (AppState::Idle, hotkey(), AppState::Recording),
+            (AppState::Recording, hotkey(), AppState::Transcribing),
+            (AppState::Transcribing, tdone("hello"), AppState::Refining),
+            (AppState::Refining, rdone("Hello."), AppState::Injecting),
+            (AppState::Injecting, AppEvent::OutputDone, AppState::Idle),
         ];
         for (from, event, expected) in seq {
             let got = apply_transition(&from, &event);
@@ -381,7 +414,11 @@ mod tests {
             AppState::Injecting,
         ];
         for s in states {
-            assert_eq!(apply_transition(&s, &err()), Some(AppState::Idle), "from={s:?}");
+            assert_eq!(
+                apply_transition(&s, &err()),
+                Some(AppState::Idle),
+                "from={s:?}"
+            );
         }
     }
 
@@ -397,21 +434,27 @@ mod tests {
     fn wrong_event_in_state_is_ignored() {
         // HotkeyPressed is only meaningful in Idle and Recording.
         assert_eq!(apply_transition(&AppState::Transcribing, &hotkey()), None);
-        assert_eq!(apply_transition(&AppState::Injecting,    &hotkey()), None);
+        assert_eq!(apply_transition(&AppState::Injecting, &hotkey()), None);
         // OutputDone only matters in Injecting.
-        assert_eq!(apply_transition(&AppState::Idle,    &AppEvent::OutputDone), None);
-        assert_eq!(apply_transition(&AppState::Refining, &AppEvent::OutputDone), None);
+        assert_eq!(
+            apply_transition(&AppState::Idle, &AppEvent::OutputDone),
+            None
+        );
+        assert_eq!(
+            apply_transition(&AppState::Refining, &AppEvent::OutputDone),
+            None
+        );
     }
 
     #[test]
     fn transcribe_done_only_in_transcribing() {
-        assert_eq!(apply_transition(&AppState::Idle,    &tdone("x")), None);
-        assert_eq!(apply_transition(&AppState::Refining,&tdone("x")), None);
+        assert_eq!(apply_transition(&AppState::Idle, &tdone("x")), None);
+        assert_eq!(apply_transition(&AppState::Refining, &tdone("x")), None);
     }
 
     #[test]
     fn refine_done_only_in_refining() {
-        assert_eq!(apply_transition(&AppState::Idle,      &rdone("x")), None);
+        assert_eq!(apply_transition(&AppState::Idle, &rdone("x")), None);
         assert_eq!(apply_transition(&AppState::Injecting, &rdone("x")), None);
     }
 }

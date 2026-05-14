@@ -4,8 +4,7 @@ use arboard::Clipboard;
 
 /// Write text to the system clipboard.
 pub fn write(text: &str) -> anyhow::Result<()> {
-    let mut cb = Clipboard::new()
-        .map_err(|e| anyhow::anyhow!("Clipboard init failed: {}", e))?;
+    let mut cb = Clipboard::new().map_err(|e| anyhow::anyhow!("Clipboard init failed: {}", e))?;
     cb.set_text(text)
         .map_err(|e| anyhow::anyhow!("Clipboard write failed: {}", e))?;
     tracing::debug!(chars = text.len(), "Clipboard written");
@@ -14,8 +13,7 @@ pub fn write(text: &str) -> anyhow::Result<()> {
 
 /// Read text from the system clipboard (used for testing and dry-run).
 pub fn read() -> anyhow::Result<String> {
-    let mut cb = Clipboard::new()
-        .map_err(|e| anyhow::anyhow!("Clipboard init failed: {}", e))?;
+    let mut cb = Clipboard::new().map_err(|e| anyhow::anyhow!("Clipboard init failed: {}", e))?;
     cb.get_text()
         .map_err(|e| anyhow::anyhow!("Clipboard read failed: {}", e))
 }

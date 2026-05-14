@@ -2,10 +2,10 @@
 //!
 //! On any API error the raw transcript is returned unchanged (P6-11).
 
+use super::Refiner;
+use crate::config::RefineConfig;
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::config::RefineConfig;
-use super::Refiner;
 
 const DEFAULT_BASE_URL: &str = "https://api.openai.com";
 
@@ -16,7 +16,10 @@ pub struct OpenAiRefiner {
 
 impl OpenAiRefiner {
     pub fn new(config: &RefineConfig) -> Self {
-        Self { config: config.clone(), client: reqwest::Client::new() }
+        Self {
+            config: config.clone(),
+            client: reqwest::Client::new(),
+        }
     }
 }
 
@@ -82,7 +85,10 @@ pub async fn call_openai(
         .as_str()
         .map(|s| s.to_string())
         .ok_or_else(|| {
-            anyhow::anyhow!("No choices[0].message.content in OpenAI response: {:?}", body)
+            anyhow::anyhow!(
+                "No choices[0].message.content in OpenAI response: {:?}",
+                body
+            )
         })
 }
 

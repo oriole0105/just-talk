@@ -43,7 +43,7 @@ sudo mv just-talk-* /usr/local/bin/just-talk
 - Local Whisper only: `cmake`
 
 ```bash
-git clone https://github.com/your-username/just-talk
+git clone https://github.com/oriole0105/just-talk
 cd just-talk
 
 # Default build (remote APIs only)

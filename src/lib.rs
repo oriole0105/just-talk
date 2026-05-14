@@ -7,6 +7,7 @@ pub mod error;
 pub mod hotkey;
 pub mod notification;
 pub mod output;
+pub mod overlay;
 pub mod refine;
 pub mod transcribe;
 

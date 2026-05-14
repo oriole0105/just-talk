@@ -3,10 +3,10 @@
 //! On any API error the raw transcript is returned unchanged so the user
 //! never loses their dictation (P6-11).
 
+use super::Refiner;
+use crate::config::RefineConfig;
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::config::RefineConfig;
-use super::Refiner;
 
 const DEFAULT_BASE_URL: &str = "https://api.anthropic.com";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
@@ -19,7 +19,10 @@ pub struct ClaudeRefiner {
 
 impl ClaudeRefiner {
     pub fn new(config: &RefineConfig) -> Self {
-        Self { config: config.clone(), client: reqwest::Client::new() }
+        Self {
+            config: config.clone(),
+            client: reqwest::Client::new(),
+        }
     }
 }
 
