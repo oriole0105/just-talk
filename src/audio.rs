@@ -341,7 +341,7 @@ mod tests {
 
     #[test]
     fn resample_passthrough_when_already_16k() {
-        let signal: Vec<f32> = (0..1600).map(|i| (i as f32 / 1600.0)).collect();
+        let signal: Vec<f32> = (0..1600).map(|i| i as f32 / 1600.0).collect();
         let out = resample_to_16k(&signal, 16_000).unwrap();
         assert_eq!(out.len(), signal.len());
     }

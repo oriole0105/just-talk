@@ -261,7 +261,7 @@ clipboard_fallback = false
         assert_eq!(cfg.hotkey.key, "CapsLock");
         assert_eq!(cfg.hotkey.modifiers, vec!["Ctrl"]);
         assert_eq!(cfg.transcribe.language, Some("zh".to_string()));
-        assert_eq!(cfg.output.prefer_inject, false);
+        assert!(!cfg.output.prefer_inject);
         assert_eq!(cfg.output.inject_delay_ms, 50);
         std::fs::remove_file(p).ok();
     }
@@ -280,9 +280,9 @@ key = "F5"
         assert_eq!(cfg.transcribe.backend, TranscribeBackend::Local);
         assert_eq!(cfg.transcribe.openai_model, "whisper-1");
         assert_eq!(cfg.refine.backend, RefineBackend::None);
-        assert_eq!(cfg.output.prefer_inject, true);
+        assert!(cfg.output.prefer_inject);
         assert_eq!(cfg.output.inject_delay_ms, 20);
-        assert_eq!(cfg.output.clipboard_fallback, true);
+        assert!(cfg.output.clipboard_fallback);
         std::fs::remove_file(p).ok();
     }
 
