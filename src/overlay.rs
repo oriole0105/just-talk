@@ -6,8 +6,12 @@
 
 use egui::{Color32, Pos2, Rect, RichText, Vec2};
 use std::collections::VecDeque;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use tokio::sync::mpsc;
+
+use crate::app::AppEvent;
 
 // ---------------------------------------------------------------------------
 // Layout constants
@@ -101,13 +105,31 @@ pub type SharedOverlay = Arc<Mutex<OverlayState>>;
 pub struct OverlayApp {
     overlay: SharedOverlay,
     positioned: bool,
+    tx: mpsc::Sender<AppEvent>,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    config_path: Option<PathBuf>,
+    #[cfg(target_os = "macos")]
+    tray: Option<crate::tray::TrayManager>,
 }
 
 impl OverlayApp {
-    pub fn new(overlay: SharedOverlay) -> Self {
+    pub fn new(
+        overlay: SharedOverlay,
+        tx: mpsc::Sender<AppEvent>,
+        config_path: Option<PathBuf>,
+    ) -> Self {
+        #[cfg(target_os = "macos")]
+        let tray = crate::tray::TrayManager::new(config_path.clone())
+            .map_err(|e| tracing::warn!("Tray icon init failed: {e}"))
+            .ok();
+
         Self {
             overlay,
             positioned: false,
+            tx,
+            config_path,
+            #[cfg(target_os = "macos")]
+            tray,
         }
     }
 }
@@ -135,6 +157,22 @@ impl eframe::App for OverlayApp {
         if state.quit {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             return;
+        }
+
+        // Poll tray icon menu events (macOS only).
+        #[cfg(target_os = "macos")]
+        if let Some(ref mut tray) = self.tray {
+            tray.sync_phase(&state.phase);
+            match tray.poll() {
+                crate::tray::TrayPoll::Quit => {
+                    state.quit = true;
+                    let _ = self.tx.try_send(AppEvent::Quit);
+                }
+                crate::tray::TrayPoll::OpenConfig => {
+                    tray.open_config();
+                }
+                crate::tray::TrayPoll::None => {}
+            }
         }
 
         match state.phase.clone() {

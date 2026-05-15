@@ -11,5 +11,5 @@ pub mod overlay;
 pub mod refine;
 pub mod transcribe;
 
-#[cfg(feature = "tray")]
+#[cfg(target_os = "macos")]
 pub mod tray;

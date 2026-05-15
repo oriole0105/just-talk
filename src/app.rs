@@ -109,6 +109,8 @@ impl App {
             .build()?;
 
         // Tokio event loop on a background thread — eframe must own the main thread.
+        let tx_for_overlay = tx.clone();
+        let config_path_for_overlay = self.config_path.clone();
         let overlay2 = Arc::clone(&overlay);
         std::thread::Builder::new()
             .name("event-loop".to_string())
@@ -137,7 +139,13 @@ impl App {
         eframe::run_native(
             "just-talk",
             options,
-            Box::new(|_cc| Ok(Box::new(OverlayApp::new(overlay)))),
+            Box::new(move |_cc| {
+                Ok(Box::new(OverlayApp::new(
+                    overlay,
+                    tx_for_overlay,
+                    config_path_for_overlay,
+                )))
+            }),
         )
         .map_err(|e| anyhow::anyhow!("eframe error: {e}"))
     }

@@ -45,7 +45,7 @@ assets = [
 [features]
 default = []
 local-whisper = ["dep:whisper-rs"]   # requires cmake; enable after Phase 5
-tray          = ["dep:tray-icon"]    # enable after Phase 2
+tray          = []                   # reserved; tray-icon is always on macOS
 gpu           = ["whisper-rs/cuda"]  # CUDA acceleration (Linux/Windows)
 
 # -----------------------------------------------------------------------------
@@ -87,6 +87,7 @@ anyhow       = "1"
 # Logging
 tracing             = "0.1"
 tracing-subscriber  = { version = "0.3", features = ["env-filter"] }
+tracing-appender    = "0.2"
 
 # Utilities
 dirs         = "5"
@@ -97,13 +98,14 @@ notify-rust  = "4"        # OS notification popups
 egui         = "0.29"
 eframe       = "0.29"
 
-# System tray (optional)
-tray-icon    = { version = "0.14", optional = true }
 
 # -----------------------------------------------------------------------------
-# Platform-specific (focus detection — added in Phase 7)
+# Platform-specific
 # -----------------------------------------------------------------------------
-# [target.'cfg(target_os = "macos")'.dependencies]
+[target.'cfg(target_os = "macos")'.dependencies]
+tray-icon = "0.14"
+
+# Focus detection (Phase 7 — stubs currently active)
 # accessibility = "0.1"
 
 # [target.'cfg(target_os = "windows")'.dependencies]
