@@ -102,16 +102,9 @@ impl Transcriber for LocalTranscriber {
                 .full(params, &pcm_owned)
                 .map_err(|e| anyhow::anyhow!("Whisper inference failed: {:?}", e))?;
 
-            let n = state
-                .full_n_segments()
-                .map_err(|e| anyhow::anyhow!("full_n_segments failed: {:?}", e))?;
-
             let mut result = String::new();
-            for i in 0..n {
-                let seg = state
-                    .full_get_segment_text(i)
-                    .map_err(|e| anyhow::anyhow!("segment {} text failed: {:?}", i, e))?;
-                result.push_str(seg.trim());
+            for seg in state.as_iter() {
+                result.push_str(seg.to_string().trim());
                 result.push(' ');
             }
             Ok(result.trim().to_string())

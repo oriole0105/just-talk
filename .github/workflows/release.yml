@@ -30,6 +30,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             artifact: just-talk-x86_64-pc-windows-msvc
             ext: .exe
+            extra_features: local-whisper
 
     steps:
       - uses: actions/checkout@v4
@@ -63,8 +64,20 @@ jobs:
             libxkbcommon-dev \
             pkg-config
 
+      - name: Install cmake + LLVM (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install cmake llvm -y --no-progress
+          echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Build release binary
+        if: "!matrix.extra_features"
         run: cargo build --locked --release --target ${{ matrix.target }}
+
+      - name: Build release binary (with extra features)
+        if: matrix.extra_features
+        run: cargo build --locked --release --target ${{ matrix.target }} --features ${{ matrix.extra_features }}
 
       - name: Rename artifact (Unix)
         if: runner.os != 'Windows'

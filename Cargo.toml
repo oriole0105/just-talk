@@ -65,7 +65,7 @@ rubato       = "0.14"
 hound        = "3.5"
 
 # Local Whisper (optional, needs cmake)
-whisper-rs   = { version = "0.11", optional = true }
+whisper-rs   = { version = "0.16", optional = true }
 
 # HTTP client for remote APIs
 reqwest      = { version = "0.12", features = ["json", "multipart"] }
