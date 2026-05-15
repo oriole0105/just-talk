@@ -102,14 +102,16 @@ eframe       = "0.29"
 # -----------------------------------------------------------------------------
 # Platform-specific
 # -----------------------------------------------------------------------------
+# Tray icon: menu bar on macOS, notification area on Windows
 [target.'cfg(target_os = "macos")'.dependencies]
 tray-icon = "0.14"
 
-# Focus detection (Phase 7 — stubs currently active)
-# accessibility = "0.1"
+[target.'cfg(target_os = "windows")'.dependencies]
+tray-icon = "0.14"
 
-# [target.'cfg(target_os = "windows")'.dependencies]
-# windows = { version = "0.58", features = ["Win32_UI_Accessibility"] }
+# Focus detection (Phase 7 — stubs currently active)
+# accessibility = "0.1"  (macOS)
+# windows = { version = "0.58", features = ["Win32_UI_Accessibility"] }  (Windows)
 
 # [target.'cfg(target_os = "linux")'.dependencies]
 # atspi = "0.3"

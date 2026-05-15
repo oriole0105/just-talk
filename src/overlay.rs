@@ -6,7 +6,6 @@
 
 use egui::{Color32, Pos2, Rect, RichText, Vec2};
 use std::collections::VecDeque;
-#[cfg(target_os = "macos")]
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -107,7 +106,7 @@ pub struct OverlayApp {
     overlay: SharedOverlay,
     positioned: bool,
     tx: mpsc::Sender<AppEvent>,
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     tray: Option<crate::tray::TrayManager>,
 }
 
@@ -117,20 +116,20 @@ impl OverlayApp {
         tx: mpsc::Sender<AppEvent>,
         config_path: Option<PathBuf>,
     ) -> Self {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         let tray = crate::tray::TrayManager::new(config_path)
             .map_err(|e| tracing::warn!("Tray icon init failed: {e}"))
             .ok();
 
-        // config_path consumed by TrayManager on macOS; not needed on other platforms.
-        #[cfg(not(target_os = "macos"))]
+        // config_path consumed by TrayManager on macOS/Windows; not needed elsewhere.
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         let _ = config_path;
 
         Self {
             overlay,
             positioned: false,
             tx,
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
             tray,
         }
     }
@@ -161,8 +160,8 @@ impl eframe::App for OverlayApp {
             return;
         }
 
-        // Poll tray icon menu events (macOS only).
-        #[cfg(target_os = "macos")]
+        // Poll tray icon menu events (macOS / Windows).
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         if let Some(ref mut tray) = self.tray {
             tray.sync_phase(&state.phase);
             match tray.poll() {

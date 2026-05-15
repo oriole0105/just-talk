@@ -1,8 +1,8 @@
-//! macOS menu bar icon via tray-icon crate.
+//! System tray icon via tray-icon crate.
 //!
-//! Lives on the main thread (NSStatusItem requirement).  Created inside
-//! OverlayApp::new() which is called from eframe's creation callback — at that
-//! point NSApplication is already set up.
+//! macOS  — menu bar (NSStatusItem); must be created on the main thread.
+//! Windows — notification area (Shell_NotifyIcon); must be created on the main
+//!           thread after a message loop exists (eframe creation callback is fine).
 
 use std::path::PathBuf;
 
@@ -120,7 +120,16 @@ impl TrayManager {
     /// Open the config file in the system default editor.
     pub fn open_config(&self) {
         if let Some(ref path) = self.config_path {
+            #[cfg(target_os = "macos")]
             let _ = std::process::Command::new("open").arg(path).spawn();
+
+            #[cfg(target_os = "windows")]
+            let _ = std::process::Command::new("cmd")
+                .args(["/C", "start", "", &path.to_string_lossy()])
+                .spawn();
+
+            #[cfg(target_os = "linux")]
+            let _ = std::process::Command::new("xdg-open").arg(path).spawn();
         }
     }
 }
