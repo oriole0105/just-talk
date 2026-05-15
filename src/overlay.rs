@@ -6,6 +6,7 @@
 
 use egui::{Color32, Pos2, Rect, RichText, Vec2};
 use std::collections::VecDeque;
+#[cfg(target_os = "macos")]
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -106,8 +107,6 @@ pub struct OverlayApp {
     overlay: SharedOverlay,
     positioned: bool,
     tx: mpsc::Sender<AppEvent>,
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-    config_path: Option<PathBuf>,
     #[cfg(target_os = "macos")]
     tray: Option<crate::tray::TrayManager>,
 }
@@ -119,15 +118,18 @@ impl OverlayApp {
         config_path: Option<PathBuf>,
     ) -> Self {
         #[cfg(target_os = "macos")]
-        let tray = crate::tray::TrayManager::new(config_path.clone())
+        let tray = crate::tray::TrayManager::new(config_path)
             .map_err(|e| tracing::warn!("Tray icon init failed: {e}"))
             .ok();
+
+        // config_path consumed by TrayManager on macOS; not needed on other platforms.
+        #[cfg(not(target_os = "macos"))]
+        let _ = config_path;
 
         Self {
             overlay,
             positioned: false,
             tx,
-            config_path,
             #[cfg(target_os = "macos")]
             tray,
         }
