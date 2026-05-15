@@ -173,15 +173,24 @@ cd "$REPO_ROOT"
 [[ "$MODE" == "universal" ]] && rm -f "$DIST/${APP_NAME}-universal-tmp"
 
 # ---------------------------------------------------------------------------
+# Install to /Applications
+# ---------------------------------------------------------------------------
+INSTALL_PATH="/Applications/${APP_NAME}.app"
+echo "==> Installing to $INSTALL_PATH"
+rm -rf "$INSTALL_PATH"
+cp -r "$APP_BUNDLE" "$INSTALL_PATH"
+
+# ---------------------------------------------------------------------------
 # Done
 # ---------------------------------------------------------------------------
 echo ""
-echo "Built successfully:"
-echo "  App:     $APP_BUNDLE"
+echo "Built and installed successfully:"
+echo "  App:     $INSTALL_PATH"
 echo "  Archive: $DIST/$ZIP_NAME"
 echo ""
-echo "First-run setup:"
-echo "  1. Open dist/ in Finder, right-click just-talk.app → Open"
+echo "First-run setup (one-time):"
+echo "  1. Double-click /Applications/just-talk.app to launch"
+echo "     (or: open /Applications/just-talk.app)"
 echo "  2. Allow Microphone access when prompted"
 echo "  3. System Settings → Privacy & Security → Accessibility → add just-talk.app"
 echo ""
