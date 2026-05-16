@@ -182,8 +182,8 @@ impl Config {
         if let Ok(p) = std::env::var("JUST_TALK_CONFIG") {
             return Some(PathBuf::from(p));
         }
-        if let Some(config_dir) = dirs::config_dir() {
-            let p = config_dir.join("just-talk").join("config.toml");
+        if let Some(home) = dirs::home_dir() {
+            let p = home.join(".config").join("just-talk").join("config.toml");
             if p.exists() {
                 return Some(p);
             }
