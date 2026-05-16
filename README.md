@@ -8,172 +8,267 @@ Cross-platform voice IME — press a hotkey, speak, get text injected into any a
 
 ## Features
 
-- **Global hotkey** — one key to start recording, same key to stop
-- **Transcription** — local Whisper (whisper.cpp via whisper-rs) or OpenAI Whisper API
+- **Global hotkey** — double-tap Right Command (macOS) or configurable key to start/stop recording
+- **Menu bar icon** — runs headless in the background; no open terminal required (macOS / Windows)
+- **Transcription** — local Whisper (whisper.cpp) or any OpenAI-compatible API (Groq, OpenAI, etc.)
 - **AI refinement** — Claude, OpenAI GPT, Ollama, or passthrough (no refinement)
-- **Output** — keyboard injection (enigo) with clipboard fallback
+- **Output** — keyboard injection with clipboard fallback
 - **Config hot-reload** — edit `config.toml` without restarting
-- **Dry-run mode** — print output to stdout for scripting / testing
+- **File logging** — logs written to `~/Library/Logs/just-talk/` (macOS) for debugging without a terminal
 
-## Installation
+## Installation — macOS
 
-### Pre-built binaries
+### Option A: .app bundle (recommended)
 
-Download the latest release for your platform from the [Releases](../../releases) page:
+The `.app` bundle integrates properly with macOS: Login Items, Accessibility permissions, and the menu bar icon all work reliably.
 
-| Platform | File |
-|----------|------|
-| macOS (Apple Silicon) | `just-talk-aarch64-apple-darwin` |
-| macOS (Intel) | `just-talk-x86_64-apple-darwin` |
-| Linux (x86-64) | `just-talk-x86_64-unknown-linux-gnu` |
-| Windows (x86-64) | `just-talk-x86_64-pc-windows-msvc.exe` |
+**Step 1 — Build the app**
 
 ```bash
-# macOS / Linux
-chmod +x just-talk-*
-sudo mv just-talk-* /usr/local/bin/just-talk
+git clone https://github.com/oriole0105/just-talk
+cd just-talk
+./scripts/package-macos.sh          # native arch (arm64 or x86_64)
+# ./scripts/package-macos.sh universal   # fat binary for both arches
 ```
 
-### Build from source
+This builds the binary, assembles `just-talk.app`, and installs it to `/Applications/just-talk.app`.
 
-**Prerequisites:**
-- Rust 1.75+
-- macOS/Linux: standard C toolchain
-- Linux: `libasound2-dev libxtst-dev libxdo-dev libxcb1-dev libxkbcommon-dev pkg-config`
-- Local Whisper only: `cmake`
+**Prerequisites:** Xcode Command Line Tools (`xcode-select --install`), Rust (`rustup`).
+
+**Step 2 — First launch**
+
+Double-click `/Applications/just-talk.app` (or `open /Applications/just-talk.app`).  
+macOS will prompt for Microphone access — allow it.
+
+**Step 3 — Accessibility permission (required once)**
+
+```
+System Settings → Privacy & Security → Accessibility → add just-talk
+```
+
+**Step 4 — Auto-start on login (optional)**
+
+```
+System Settings → General → Login Items → add just-talk
+```
+
+After this, just-talk starts automatically on login and runs silently in the menu bar.
+
+---
+
+### Option B: raw binary (simpler, no menu bar auto-start)
+
+Use this if you just want to run just-talk from a terminal or script.
+
+```bash
+# Apple Silicon
+curl -L https://github.com/oriole0105/just-talk/releases/latest/download/just-talk-aarch64-apple-darwin -o just-talk
+
+# Intel Mac
+curl -L https://github.com/oriole0105/just-talk/releases/latest/download/just-talk-x86_64-apple-darwin -o just-talk
+
+chmod +x just-talk
+sudo mv just-talk /usr/local/bin/just-talk
+```
+
+> **Note:** With the raw binary, Login Items won't work (macOS only accepts `.app` bundles there).
+> Accessibility permissions may also reset after system updates. Use Option A for a permanent install.
+
+---
+
+### Transferring to another Mac
+
+The quickest way to move just-talk (including your API keys) to a new Mac:
+
+```bash
+# On the old Mac — AirDrop or scp the app + config
+airdrop /Applications/just-talk.app          # drag to AirDrop in Finder
+scp ~/.config/just-talk/config.toml newmac:~/config_just_talk.toml
+```
+
+On the new Mac:
+
+```bash
+# Accept the AirDrop .app → move to /Applications
+mkdir -p ~/.config/just-talk
+mv ~/config_just_talk.toml ~/.config/just-talk/config.toml
+```
+
+Then repeat the Accessibility + Microphone permission steps (Step 2–3 above) — permissions are machine-specific.
+
+---
+
+## Installation — Linux
+
+```bash
+curl -L https://github.com/oriole0105/just-talk/releases/latest/download/just-talk-x86_64-unknown-linux-gnu -o just-talk
+chmod +x just-talk
+sudo mv just-talk /usr/local/bin/just-talk
+```
+
+**System dependencies:** `libasound2 libxtst6 libxdo3`
+
+## Installation — Windows
+
+Download `just-talk-x86_64-pc-windows-msvc.exe` from the [Releases](../../releases) page.  
+The binary is statically linked — no Visual C++ Redistributables required.
+
+To run at startup: add the `.exe` to **Task Scheduler** or copy to your Startup folder (`shell:startup`).
+
+---
+
+## Build from source
 
 ```bash
 git clone https://github.com/oriole0105/just-talk
 cd just-talk
 
-# Default build (remote APIs only)
+# Default (remote APIs — Groq, OpenAI, etc.)
 cargo build --release
 
-# With local Whisper (requires cmake)
+# With local Whisper (requires cmake + LLVM)
 cargo build --release --features local-whisper
 ```
 
-## Setup
+**Linux build deps:** `libasound2-dev libxtst-dev libxdo-dev libxcb1-dev libxkbcommon-dev pkg-config`  
+**Windows local-whisper deps:** `cmake`, `llvm` (via `choco install cmake llvm`)
 
-### 1. Download a Whisper model (local transcription only)
+---
 
-```bash
-./scripts/download-model.sh          # downloads ggml-base.bin (~150 MB)
-./scripts/download-model.sh small    # higher accuracy (~500 MB)
-./scripts/download-model.sh large-v3 # best accuracy (~3 GB)
-```
+## Configuration
 
-Models are saved to:
-- macOS: `~/Library/Application Support/just-talk/models/`
-- Linux: `~/.local/share/just-talk/models/`
-- Windows: `%APPDATA%\just-talk\models\`
-
-### 2. Create a config file
+Config file location: `~/.config/just-talk/config.toml`
 
 ```bash
 mkdir -p ~/.config/just-talk
-just-talk --config ~/.config/just-talk/config.toml   # creates default on first run
+# just-talk creates a default config on first run, or create it manually:
 ```
 
-Or create it manually at `~/.config/just-talk/config.toml`:
+### Minimal config — Groq API (recommended)
+
+Groq provides a free Whisper API endpoint that is OpenAI-compatible and very fast:
 
 ```toml
 [hotkey]
-key = "F4"      # Any single key: F1-F12, CapsLock, ScrollLock, etc.
+key = "RightMeta"   # double-tap to start/stop recording
 
 [transcribe]
-backend = "remote"    # "local" or "remote"
-# For "local" (needs --features local-whisper):
-# model_path = "/path/to/ggml-base.bin"
-api_key = "sk-..."    # For "remote" (OpenAI Whisper API)
-language = "auto"     # BCP-47 code or "auto"
+backend = "openai"
+base_url = "https://api.groq.com/openai/v1"
+api_key = "gsk_..."     # your Groq API key
+model = "whisper-large-v3-turbo"
+language = "auto"
 
 [refine]
-backend = "claude"    # "claude" | "openai" | "ollama" | "passthrough"
-api_key = "sk-ant-..." # Claude API key (if backend = "claude")
-# api_key = "sk-..."  # OpenAI key (if backend = "openai")
-model = "claude-opus-4-7"
-system_prompt = "Fix punctuation and capitalisation. Return only the corrected text."
-
-# For Ollama:
-# backend = "ollama"
-# base_url = "http://localhost:11434"
-# model = "gemma3:27b"
+backend = "passthrough"   # no AI refinement; raw transcript is injected
 
 [output]
-prefer_inject = true      # false = always use clipboard
-clipboard_fallback = true # fall back to clipboard if inject fails
-inject_delay_ms = 0       # >0 = char-by-char (useful for CJK / slow apps)
+prefer_inject = true
+clipboard_fallback = true
 ```
 
-### 3. macOS permissions
+### Config with AI refinement
 
-just-talk needs two permissions granted once:
+```toml
+[refine]
+backend = "claude"
+api_key = "sk-ant-..."
+model = "claude-haiku-4-5-20251001"
+system_prompt = "Fix punctuation and capitalisation. Return only the corrected text."
+```
 
-1. **Microphone** — System Settings → Privacy & Security → Microphone → enable just-talk  
-2. **Accessibility** — System Settings → Privacy & Security → Accessibility → enable just-talk  
-   (required for `rdev` global hotkeys and `enigo` keyboard injection)
+### Local Whisper (offline, no API key needed)
+
+Requires a model file and `--features local-whisper` build:
+
+```bash
+# Download a model
+mkdir -p ~/Library/Application\ Support/just-talk/models
+curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin \
+  -o ~/Library/Application\ Support/just-talk/models/ggml-base.bin
+```
+
+```toml
+[transcribe]
+backend = "local"
+model_path = "/Users/<you>/Library/Application Support/just-talk/models/ggml-base.bin"
+language = "auto"
+```
+
+---
 
 ## Usage
 
-```bash
-# Start normally
-just-talk
+```
+just-talk [OPTIONS]
 
-# Custom config path
-just-talk --config /path/to/config.toml
-
-# Debug logging
-just-talk --verbose
-
-# Print output to stdout instead of injecting (for testing)
-just-talk --dry-run
+Options:
+  --config <PATH>   Path to config file (default: ~/.config/just-talk/config.toml)
+  --verbose         Enable debug logging
+  --dry-run         Print output to stdout instead of injecting (for testing)
 ```
 
 **Workflow:**
-1. Press the configured hotkey → status notification "Recording…"
+1. Double-tap Right Command (or configured hotkey) → overlay shows "Recording…"
 2. Speak
-3. Press the hotkey again → "Transcribing…"
-4. Wait a moment → text is injected at the cursor (or copied to clipboard)
+3. Double-tap again → "Transcribing…" → "Refining…" → text injected at cursor
 
-Press **Ctrl+C** to quit.
+The menu bar icon reflects the current state:
+- **Grey circle** — idle
+- **Red circle** — recording
+- **Yellow circle** — transcribing / refining
+
+Right-click the menu bar icon to open the config file or quit.
+
+---
 
 ## Supported backends
 
 ### Transcription
 
-| Backend | Key | Notes |
-|---------|-----|-------|
-| `local` | — | Requires `--features local-whisper` and a model file |
-| `remote` | `OPENAI_API_KEY` or `api_key` in config | OpenAI Whisper API |
+| Backend | Config `backend` | Notes |
+|---------|-----------------|-------|
+| Groq Whisper API | `"openai"` + `base_url = "https://api.groq.com/openai/v1"` | Fast, free tier available |
+| OpenAI Whisper API | `"openai"` | Requires OpenAI API key |
+| Local whisper.cpp | `"local"` | Requires `--features local-whisper` + model file |
 
 ### Refinement
 
-| Backend | Key | Notes |
-|---------|-----|-------|
-| `claude` | `ANTHROPIC_API_KEY` or `api_key` | Anthropic Messages API |
-| `openai` | `OPENAI_API_KEY` or `api_key` | OpenAI Chat Completions |
-| `ollama` | — | Local Ollama server at `base_url` |
-| `passthrough` | — | No refinement; raw transcript is injected |
+| Backend | Config `backend` | Notes |
+|---------|-----------------|-------|
+| None | `"passthrough"` | Raw transcript injected as-is |
+| Claude | `"claude"` | Anthropic Messages API |
+| OpenAI | `"openai"` | OpenAI Chat Completions |
+| Ollama | `"ollama"` | Local Ollama server |
 
-API keys can be set in `config.toml` or as environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`).
+---
+
+## Debugging
+
+Logs are written to:
+- **macOS:** `~/Library/Logs/just-talk/just-talk.log.YYYY-MM-DD`
+- **Linux/Windows:** `~/.local/share/just-talk/logs/`
+
+```bash
+# Follow live logs
+tail -f ~/Library/Logs/just-talk/just-talk.log.*
+
+# Or run with terminal output
+just-talk --verbose
+```
+
+---
 
 ## Development
 
 ```bash
-# Run all tests (no hardware required)
 cargo test
-
-# Run a single test
-cargo test full_cycle_state_sequence
-
-# Run with verbose logging
-RUST_LOG=debug cargo run -- --verbose --dry-run
-
-# Check formatting and lints
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
+RUST_LOG=debug cargo run -- --verbose --dry-run
 ```
+
+---
 
 ## License
 
