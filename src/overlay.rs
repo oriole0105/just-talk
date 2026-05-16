@@ -105,10 +105,7 @@ pub type SharedOverlay = Arc<Mutex<OverlayState>>;
 pub struct OverlayApp {
     overlay: SharedOverlay,
     positioned: bool,
-    #[cfg_attr(
-        not(any(target_os = "macos", target_os = "windows")),
-        allow(dead_code)
-    )]
+    #[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
     tx: mpsc::Sender<AppEvent>,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     tray: Option<crate::tray::TrayManager>,
